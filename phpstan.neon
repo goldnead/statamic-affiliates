@@ -1,0 +1,25 @@
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 5
+
+    paths:
+        - src
+        - database
+        - config
+
+    treatPhpDocTypesAsCertain: false
+
+    # Larastan only knows the host app's config directory; this is the
+    # package's own, where env() is exactly right.
+    ignoreErrors:
+        -
+            identifier: larastan.noEnvCallsOutsideOfConfig
+            path: config/affiliates.php
+        # Older statamic/cms releases give the parent's $vite a narrower
+        # docblock than the bundle array; newer ones do not. Tolerate both.
+        -
+            identifier: property.defaultValue
+            path: src/ServiceProvider.php
+            reportUnmatched: false

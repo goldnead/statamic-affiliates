@@ -1,0 +1,101 @@
+{
+    "name": "goldnead/statamic-affiliates",
+    "description": "A partner programme for Statamic: partners, tracking links with a consent-aware cookie, commissions per offer (first payment, recurring, bumps, upsells), refunds that reverse them, a hold period, payout lists, joint-venture revenue splits and coupons that belong to a partner. Attribution comes from statamic-payments events, never from a request field.",
+    "type": "statamic-addon",
+    "license": "proprietary",
+    "keywords": [
+        "statamic",
+        "statamic-addon",
+        "affiliates",
+        "partner-programme",
+        "referral",
+        "commission",
+        "joint-venture"
+    ],
+    "authors": [
+        {
+            "name": "Adrian Goldner",
+            "email": "info@adriangoldner.com"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/goldnead/statamic-affiliates/issues",
+        "source": "https://github.com/goldnead/statamic-affiliates"
+    },
+    "require": {
+        "php": "^8.2",
+        "goldnead/statamic-brand-context": "^1.13",
+        "laravel/framework": "^12.40|^13.0",
+        "statamic/cms": "^6.0"
+    },
+    "require-dev": {
+        "goldnead/statamic-consent": "^1.8",
+        "goldnead/statamic-payments": "^1.24",
+        "larastan/larastan": "^3.0",
+        "laravel/pint": "^1.18",
+        "orchestra/testbench": "^10.0|^11.0",
+        "pestphp/pest": "^3.0|^4.0|^5.0",
+        "pestphp/pest-plugin-laravel": "^3.0|^4.0|^5.0"
+    },
+    "suggest": {
+        "goldnead/statamic-payments": "Where commissions come from: PaymentPaid books them, PaymentRefunded and PaymentChargedBack reverse them (1.24 or later). Without it nothing is ever attributed.",
+        "goldnead/statamic-offers": "Coupons that belong to a partner: a redeemed code counts as a referral even without a cookie.",
+        "goldnead/statamic-consent": "Asks the visitor before the referral cookie is set. Without it, or another consent answer, referrals only last for the visit."
+    },
+    "autoload": {
+        "psr-4": {
+            "Goldnead\\Affiliates\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Goldnead\\Affiliates\\Tests\\": "tests/"
+        }
+    },
+    "extra": {
+        "statamic": {
+            "name": "Affiliates",
+            "slug": "affiliates",
+            "description": "Partner programme: tracking links, commissions, payouts and joint-venture splits.",
+            "url": "https://github.com/goldnead/statamic-affiliates",
+            "developer": "Adrian Goldner",
+            "developer-url": "https://adriangoldner.dev"
+        },
+        "laravel": {
+            "providers": [
+                "Goldnead\\Affiliates\\ServiceProvider"
+            ],
+            "aliases": {
+                "Affiliates": "Goldnead\\Affiliates\\Facades\\Affiliates"
+            }
+        }
+    },
+    "scripts": {
+        "test": [
+            "@php vendor/bin/pest"
+        ],
+        "test:mysql": [
+            "@php vendor/bin/pest -c phpunit.mysql.xml"
+        ],
+        "lint": [
+            "@php vendor/bin/pint --test"
+        ],
+        "fix": [
+            "@php vendor/bin/pint"
+        ],
+        "analyse": [
+            "@php vendor/bin/phpstan analyse --memory-limit=1G"
+        ]
+    },
+    "config": {
+        "sort-packages": true,
+        "allow-plugins": {
+            "pestphp/pest-plugin": true,
+            "pixelfear/composer-dist-plugin": true,
+            "composer/installers": true,
+            "php-http/discovery": true
+        }
+    },
+    "minimum-stability": "stable",
+    "prefer-stable": true
+}

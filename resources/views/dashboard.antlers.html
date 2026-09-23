@@ -1,0 +1,131 @@
+{{#
+    The partner area. Publish it to change it:
+    php artisan vendor:publish --tag=affiliates-views
+    and edit resources/views/vendor/affiliates/dashboard.antlers.html.
+
+    Plain markup with class names under .affiliates-*, so a site styles it
+    with its own CSS. Every part is also available as a tag on its own.
+#}}
+<section class="affiliates">
+    {{ if success }}
+        <p class="affiliates-notice" role="status">{{ success }}</p>
+    {{ /if }}
+
+    {{ if ! signed_in }}
+        <p>{{ trans key="affiliates::messages.login_required" }}</p>
+    {{ elseif partner:no_partner }}
+        <h2>{{ trans key="affiliates::messages.apply_heading" }}</h2>
+        {{ affiliates:apply_form }}
+            {{ if has_errors }}
+                <ul class="affiliates-errors">{{ errors }}<li>{{ value }}</li>{{ /errors }}</ul>
+            {{ /if }}
+            {{ if open }}
+                <label>{{ trans key="affiliates::messages.field_name" }}
+                    <input type="text" name="name" maxlength="191">
+                </label>
+                <label>{{ trans key="affiliates::messages.field_website" }}
+                    <input type="url" name="website" maxlength="500">
+                </label>
+                <label>{{ trans key="affiliates::messages.field_message" }}
+                    <textarea name="message" rows="4" maxlength="2000"></textarea>
+                </label>
+                <label class="affiliates-check">
+                    <input type="checkbox" name="terms" value="1" required>
+                    {{ trans key="affiliates::messages.field_terms" }}
+                </label>
+                <button type="submit">{{ trans key="affiliates::messages.apply_submit" }}</button>
+            {{ else }}
+                <p>{{ trans key="affiliates::messages.signup_closed" }}</p>
+            {{ /if }}
+        {{ /affiliates:apply_form }}
+    {{ else }}
+        {{ partner }}
+            <header class="affiliates-header">
+                <h2>{{ trans key="affiliates::messages.area_heading" }}</h2>
+                <p>{{ name }} · <span class="affiliates-status">{{ status_label }}</span></p>
+            </header>
+
+            {{ if is_pending }}
+                <p>{{ trans key="affiliates::messages.pending_notice" }}</p>
+            {{ /if }}
+
+            {{ if is_active }}
+                <div class="affiliates-link">
+                    <h3>{{ trans key="affiliates::messages.your_link" }}</h3>
+                    <input type="text" readonly value="{{ link }}" onclick="this.select()">
+                    {{ if coupon_codes }}
+                        <p>{{ trans key="affiliates::messages.your_coupons" }}
+                            {{ coupon_codes }}<code>{{ value }}</code>{{ unless last }}, {{ /unless }}{{ /coupon_codes }}
+                        </p>
+                    {{ /if }}
+                </div>
+            {{ /if }}
+
+            <dl class="affiliates-stats">
+                <div><dt>{{ trans key="affiliates::messages.stat_clicks" }}</dt><dd>{{ clicks }}</dd></div>
+                <div><dt>{{ trans key="affiliates::messages.stat_sales" }}</dt><dd>{{ sales }}</dd></div>
+                <div><dt>{{ trans key="affiliates::messages.stat_conversion" }}</dt><dd>{{ if conversion !== null }}{{ conversion }} %{{ else }}–{{ /if }}</dd></div>
+                {{ money }}
+                    <div><dt>{{ trans key="affiliates::messages.stat_pending" }} ({{ currency }})</dt><dd>{{ pending }}</dd></div>
+                    <div><dt>{{ trans key="affiliates::messages.stat_approved" }} ({{ currency }})</dt><dd>{{ approved }}</dd></div>
+                    <div><dt>{{ trans key="affiliates::messages.stat_paid" }} ({{ currency }})</dt><dd>{{ paid }}</dd></div>
+                {{ /money }}
+            </dl>
+        {{ /partner }}
+
+        <h3>{{ trans key="affiliates::messages.commissions_heading" }}</h3>
+        {{ affiliates:commissions limit="50" }}
+            {{ if first }}<table class="affiliates-table"><thead><tr>
+                <th>{{ trans key="affiliates::messages.col_date" }}</th>
+                <th>{{ trans key="affiliates::messages.col_kind" }}</th>
+                <th>{{ trans key="affiliates::messages.col_amount" }}</th>
+                <th>{{ trans key="affiliates::messages.col_status" }}</th>
+            </tr></thead><tbody>{{ /if }}
+            <tr>
+                <td>{{ date format="d.m.Y" }}</td>
+                <td>{{ kind_label }}</td>
+                <td>{{ amount }}</td>
+                <td>{{ status_label }}</td>
+            </tr>
+            {{ if last }}</tbody></table>{{ /if }}
+        {{ /affiliates:commissions }}
+
+        {{ affiliates:payouts }}
+            {{ if first }}<h3>{{ trans key="affiliates::messages.payouts_heading" }}</h3><ul class="affiliates-payouts">{{ /if }}
+            <li>{{ date format="d.m.Y" }} · {{ reference }} · {{ amount }} · {{ status_label }}</li>
+            {{ if last }}</ul>{{ /if }}
+        {{ /affiliates:payouts }}
+
+        {{ affiliates:materials }}
+            {{ if first }}<h3>{{ trans key="affiliates::messages.materials_heading" }}</h3>{{ /if }}
+            <article class="affiliates-material">
+                <h4>{{ title }}</h4>
+                {{ if image }}<img src="{{ image:url }}" alt="{{ title }}">{{ /if }}
+                {{ if copy }}<textarea readonly rows="4">{{ copy }}</textarea>{{ /if }}
+            </article>
+        {{ /affiliates:materials }}
+
+        <h3>{{ trans key="affiliates::messages.details_heading" }}</h3>
+        {{ affiliates:details_form }}
+            {{ if has_errors }}
+                <ul class="affiliates-errors">{{ errors }}<li>{{ value }}</li>{{ /errors }}</ul>
+            {{ /if }}
+            <label>{{ trans key="affiliates::messages.field_method" }}
+                <select name="payout_method">
+                    <option value="bank" {{ if payout_method == 'bank' }}selected{{ /if }}>{{ trans key="affiliates::cp.method_bank" }}</option>
+                    <option value="paypal" {{ if payout_method == 'paypal' }}selected{{ /if }}>{{ trans key="affiliates::cp.method_paypal" }}</option>
+                    <option value="other" {{ if payout_method == 'other' }}selected{{ /if }}>{{ trans key="affiliates::cp.method_other" }}</option>
+                </select>
+            </label>
+            <label>{{ trans key="affiliates::messages.field_details" }}
+                <textarea name="payout_details" rows="3" maxlength="500" placeholder="{{ if has_details }}{{ trans key="affiliates::messages.details_stored" }}{{ /if }}"></textarea>
+            </label>
+            <label class="affiliates-check">
+                <input type="hidden" name="notify" value="0">
+                <input type="checkbox" name="notify" value="1" {{ if notify }}checked{{ /if }}>
+                {{ trans key="affiliates::messages.field_notify" }}
+            </label>
+            <button type="submit">{{ trans key="affiliates::messages.details_submit" }}</button>
+        {{ /affiliates:details_form }}
+    {{ /if }}
+</section>
