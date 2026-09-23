@@ -79,6 +79,12 @@ return [
     'col_extras' => 'Also for',
     'col_share' => 'Share',
     'col_period' => 'Term',
+    'col_sold_at' => 'Sold on',
+    'col_booked_at' => 'Booked on',
+    'payout_paid_on' => 'Paid on :date',
+    'coupon_taken' => 'Already belongs to another partner: :codes',
+    'payout_details_hidden' => 'Visible and editable only with the "manage payouts" permission.',
+    'unknown_coupons' => 'Offers has no coupon with these codes, so no order can ever carry them: :codes',
 
     'partner_pending' => 'Awaiting approval',
     'partner_active' => 'Active',

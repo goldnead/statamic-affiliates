@@ -65,7 +65,8 @@ it('sends an invitation that binds the record to whoever accepts it once', funct
     // Not signed in: sent to the login page, and back here afterwards.
     $this->get('/!/affiliates/invite/'.$token)->assertRedirectContains('/login?redirect=');
 
-    $user = $this->member('someone@example.com');
+    // Bound to the invited address (Kritik Runde 2): the invited person accepts.
+    $user = $this->member('clara@example.com');
     $this->actingAs($user)->get('/!/affiliates/invite/'.$token)->assertSessionHas('affiliates.success');
 
     expect($partner->fresh()->user_id)->toBe((string) $user->id())

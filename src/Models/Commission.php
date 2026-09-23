@@ -27,6 +27,7 @@ use Illuminate\Support\Carbon;
  * @property string $currency
  * @property string $status
  * @property string|null $rate
+ * @property Carbon|null $sold_at
  * @property Carbon|null $available_at
  * @property Carbon|null $approved_at
  * @property Carbon|null $reversed_at
@@ -79,6 +80,7 @@ class Commission extends Model
             'amount_cent' => 'integer',
             'reversed_cent' => 'integer',
             'cycle' => 'integer',
+            'sold_at' => 'datetime',
             'available_at' => 'datetime',
             'approved_at' => 'datetime',
             'reversed_at' => 'datetime',

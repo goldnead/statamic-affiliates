@@ -46,12 +46,15 @@ class PayoutsController extends CpController
                 'id' => $p->id,
                 'url' => cp_route('affiliates.partners.show', $p->partner_id),
                 'reference' => $p->reference,
-                'partner' => $name,
-                'method' => $partner?->payout_method ? __('affiliates::cp.method_'.$partner->payout_method) : __('affiliates::cp.method_missing'),
+                // Name and payment route in one cell, the paid date in the
+                // badge: six columns, so the row menu stays on screen at 1440 px.
+                'partner' => $name.' · '.($partner?->payout_method ? __('affiliates::cp.method_'.$partner->payout_method) : __('affiliates::cp.method_missing')),
                 'amount' => Money::format($p->amount_cent, $p->currency),
                 'commission_count' => $p->commission_count,
                 'status' => $p->status,
-                'status_label' => __('affiliates::cp.payout_'.$p->status),
+                'status_label' => $p->paid_at !== null
+                    ? __('affiliates::cp.payout_paid_on', ['date' => $p->paid_at->locale(app()->getLocale())->isoFormat('L')])
+                    : __('affiliates::cp.payout_'.$p->status),
                 'created_at' => $p->created_at?->toIso8601String(),
                 'paid_at' => $p->paid_at?->toIso8601String(),
                 'row_actions' => array_values(array_filter([
@@ -80,15 +83,13 @@ class PayoutsController extends CpController
         return $this->listing($title, 'money-bag-dollar', 'payouts', [
             Column::make('reference')->label(__('affiliates::cp.col_reference')),
             Column::make('partner')->label(__('affiliates::cp.col_partner')),
-            Column::make('method')->label(__('affiliates::cp.col_method')),
             Column::make('amount')->label(__('affiliates::cp.col_amount'))->sortable(false),
             Column::make('commission_count')->label(__('affiliates::cp.col_commission_count')),
             Column::make('status')->label(__('affiliates::cp.col_status')),
             Column::make('created_at')->label(__('affiliates::cp.col_created')),
-            Column::make('paid_at')->label(__('affiliates::cp.col_paid_at')),
         ], $rows, $total, [
             'badges' => ['status' => ['open' => 'amber', 'paid' => 'green']],
-            'dates' => ['created_at', 'paid_at'],
+            'dates' => ['created_at'],
             'mono' => ['reference'],
             'description' => $due !== ''
                 ? __('affiliates::cp.payouts_due', ['amount' => $due, 'minimum' => Money::format((int) config('affiliates.payouts.minimum_cent', 5000), 'EUR')])

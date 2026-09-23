@@ -109,7 +109,7 @@ class Tracking
             ->first();
     }
 
-    protected function capture(Request $request, Response $response, string $code): void
+    public function capture(Request $request, Response $response, string $code): void
     {
         $partner = $this->activePartner($code);
 

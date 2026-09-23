@@ -31,6 +31,9 @@ return [
         'commissions_default_upsells' => ['label' => 'Also on upsells', 'description' => 'Commission on follow-up offers after the purchase.'],
         'commissions_vat_percent' => ['label' => 'VAT in percent', 'description' => 'Taken off before computing. 0 for prices without VAT.'],
         'commissions_coupon_wins' => ['label' => 'Coupon beats link', 'description' => 'An order carrying a partner\'s coupon goes to that partner, even when the buyer came through somebody else\'s link.'],
+        'commissions_partner_rate' => ['label' => 'A partner\'s own rate applies to', 'description' => 'Only the main rate of a sale, or bumps and renewals too.'],
+        'jv_stack_with_referral' => ['label' => 'JV share and referral together', 'description' => 'Whether a JV partner who also sent the buyer through their link earns the referral commission on top.'],
+        'signup_invite_days' => ['label' => 'Invitation valid for days', 'description' => 'How long an invitation link works, and only for the invited address. 0 means no limit.'],
         'commissions_self_referral' => ['label' => 'Own purchases count', 'description' => 'Whether partners earn on purchases made with their own address.'],
         'tracking_attribution' => ['label' => 'With two partners', 'description' => 'Who gets the sale when a visitor came through two links.'],
         'tracking_cookie_days' => ['label' => 'Cookie life in days', 'description' => 'How long a click counts. 0 means only for the visit.'],
@@ -49,6 +52,7 @@ return [
         'attribution' => ['first' => 'The first click counts', 'last' => 'The last click counts'],
         'consent_mode' => ['auto' => 'Automatic (statamic-consent)', 'always' => 'Always, the site asks itself', 'never' => 'Never, only for the visit'],
         'approval' => ['manual' => 'By hand', 'auto' => 'Active at once'],
+        'partner_rate' => ['main' => 'Only the main rate', 'all' => 'All rates'],
     ],
 
 ];

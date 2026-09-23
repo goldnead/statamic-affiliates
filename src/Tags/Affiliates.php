@@ -74,7 +74,8 @@ class Affiliates extends Tags
                 'currency' => $c->currency,
                 'status' => $c->status,
                 'status_label' => __('affiliates::cp.status_'.$c->status),
-                'date' => $c->created_at,
+                'date' => $c->sold_at ?? $c->created_at,
+                'booked_at' => $c->created_at,
                 'available_at' => $c->available_at,
             ])
             ->all();

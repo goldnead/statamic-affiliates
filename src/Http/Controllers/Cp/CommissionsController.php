@@ -42,7 +42,7 @@ class CommissionsController extends CpController
 
         return $this->listing($title, 'money-cash-bill', 'commissions', self::columns(true), $rows, $total, [
             'badges' => ['status' => self::statusColours()],
-            'dates' => ['created_at', 'available_at'],
+            'dates' => ['sold_at', 'created_at', 'available_at'],
             'emptyHeading' => __('affiliates::cp.commissions_empty'),
             'emptyDescription' => __('affiliates::cp.commissions_empty_description'),
         ]);
@@ -83,6 +83,9 @@ class CommissionsController extends CpController
             },
             'status' => $c->status,
             'status_label' => __('affiliates::cp.status_'.$c->status),
+            // The sale's date. The booking date is kept apart: a webhook that
+            // arrives days late must not move the sale.
+            'sold_at' => ($c->sold_at ?? $c->created_at)?->toIso8601String(),
             'created_at' => $c->created_at?->toIso8601String(),
             'available_at' => $c->available_at?->toIso8601String(),
             'row_actions' => $cancellable ? [[
@@ -100,7 +103,7 @@ class CommissionsController extends CpController
     public static function columns(bool $withPartner): array
     {
         return array_values(array_filter([
-            Column::make('created_at')->label(__('affiliates::cp.col_date')),
+            Column::make('sold_at')->label(__('affiliates::cp.col_sold_at')),
             $withPartner ? Column::make('partner')->label(__('affiliates::cp.col_partner')) : null,
             Column::make('kind_label')->label(__('affiliates::cp.col_kind')),
             Column::make('product')->label(__('affiliates::cp.col_product')),
@@ -110,6 +113,7 @@ class CommissionsController extends CpController
             Column::make('amount')->label(__('affiliates::cp.col_amount'))->sortable(false),
             Column::make('status')->label(__('affiliates::cp.col_status')),
             Column::make('available_at')->label(__('affiliates::cp.col_available'))->visible(false),
+            Column::make('created_at')->label(__('affiliates::cp.col_booked_at'))->visible(false),
         ]));
     }
 

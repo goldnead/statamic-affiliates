@@ -4,6 +4,7 @@ namespace Goldnead\Affiliates\Http\Controllers;
 
 use Goldnead\Affiliates\Affiliates;
 use Goldnead\Affiliates\Models\Partner;
+use Goldnead\Affiliates\Support\Tracking;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Routing\Controller;
@@ -30,10 +31,15 @@ class PartnerAreaController extends Controller
             $to = '/';
         }
 
-        $parameter = (string) config('affiliates.tracking.parameter', 'ref');
-        $separator = str_contains($to, '?') ? '&' : '?';
+        // The referral is noted here, on a route PHP always handles, and the
+        // visitor lands on the plain page. That is what makes this link work
+        // behind full static caching, where `?ref=` on a cached page is
+        // answered by the web server and never reaches the middleware.
+        $response = redirect($to);
 
-        return redirect($to.$separator.rawurlencode($parameter).'='.rawurlencode(mb_substr($code, 0, 64)));
+        app(Tracking::class)->capture($request, $response, mb_substr($code, 0, 64));
+
+        return $response;
     }
 
     public function apply(Request $request): RedirectResponse

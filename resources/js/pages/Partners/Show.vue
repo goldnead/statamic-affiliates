@@ -177,6 +177,11 @@ function copyLink() {
                         <div v-if="partner.coupon_codes.length" class="py-3 flex flex-wrap gap-2 justify-between">
                             <dt class="text-gray-500 dark:text-gray-400">{{ __('affiliates::cp.field_coupon_codes') }}</dt>
                             <dd class="font-mono text-sm">{{ partner.coupon_codes.join(', ') }}</dd>
+                            <Description
+                                v-if="partner.unknown_coupons?.length"
+                                class="w-full text-red-600 dark:text-red-400"
+                                :text="__('affiliates::cp.unknown_coupons', { codes: partner.unknown_coupons.join(', ') })"
+                            />
                         </div>
                         <div class="py-3 flex flex-wrap gap-2 justify-between">
                             <dt class="text-gray-500 dark:text-gray-400">{{ __('affiliates::cp.field_commission_percent') }}</dt>
@@ -274,6 +279,9 @@ function copyLink() {
                 :allow-presets="false"
                 @refreshing="router.reload()"
             >
+                <template #cell-sold_at="{ row }">
+                    <span class="whitespace-nowrap">{{ formatDate(row.sold_at) }}</span>
+                </template>
                 <template #cell-created_at="{ row }">
                     <span class="whitespace-nowrap">{{ formatDate(row.created_at) }}</span>
                 </template>

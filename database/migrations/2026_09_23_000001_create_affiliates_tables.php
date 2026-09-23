@@ -68,6 +68,9 @@ return new class extends Migration
             $table->string('source', 16);
             $table->string('coupon_code', 64)->nullable();
             $table->timestamp('clicked_at')->nullable();
+            // Set when the payment is paid. A referral noted at a checkout
+            // nobody finished is not a sale.
+            $table->timestamp('paid_at')->nullable()->index();
             $table->timestamps();
         });
 
@@ -127,6 +130,8 @@ return new class extends Migration
             $table->string('currency', 3);
             $table->string('status', 16)->default('pending')->index();
             $table->string('rate', 64)->nullable();
+            // When the sale happened; created_at is when it was booked.
+            $table->timestamp('sold_at')->nullable()->index();
             $table->timestamp('available_at')->nullable()->index();
             $table->timestamp('approved_at')->nullable();
             $table->timestamp('reversed_at')->nullable();

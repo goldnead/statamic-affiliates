@@ -23,9 +23,14 @@ final class Money
         return number_format($cent / 100, 2, ',', '.').' '.mb_strtoupper($currency);
     }
 
-    /** Minor units as a plain decimal, for CSV: "29.70". */
-    public static function decimal(int $cent): string
+    /**
+     * Minor units as a plain decimal, for CSV: "29,70" in German, "29.70"
+     * otherwise. A German spreadsheet reads "29.70" as a date or as text.
+     */
+    public static function decimal(int $cent, ?string $locale = null): string
     {
-        return number_format($cent / 100, 2, '.', '');
+        $locale ??= app()->getLocale();
+
+        return number_format($cent / 100, 2, str_starts_with($locale, 'de') ? ',' : '.', '');
     }
 }

@@ -97,7 +97,7 @@ class PartnersController extends CpController
     {
         Gate::authorize('manage affiliates');
 
-        return PublishForm::make(Blueprints::partner(true))
+        return PublishForm::make(Blueprints::partner(true, $this->seesPayouts()))
             ->title(__('affiliates::cp.create_partner'))
             ->icon('users')
             ->submittingTo(cp_route('affiliates.partners.store'), 'POST');
@@ -108,13 +108,14 @@ class PartnersController extends CpController
     {
         Gate::authorize('manage affiliates');
 
-        $values = PublishForm::make(Blueprints::partner(true))->submit($request->all());
+        $values = PublishForm::make(Blueprints::partner(true, $this->seesPayouts()))->submit($request->all());
         $email = mb_strtolower(trim((string) $values['email']));
+        $attributes = $this->attributes($values);
 
-        $this->ensureUnique($email, $values['code'] ?? null);
+        $this->ensureUnique($email, $values['code'] ?? null, $attributes['coupon_codes']);
 
         $partner = Partner::query()->create([
-            ...$this->attributes($values),
+            ...$attributes,
             'email' => $email,
             'code' => $this->code($values['code'] ?? null, (string) $values['name']),
             'approved_at' => ($values['status'] ?? null) === Partner::STATUS_ACTIVE ? now() : null,
@@ -164,6 +165,7 @@ class PartnersController extends CpController
                 'status_label' => __('affiliates::cp.partner_'.$model->status),
                 'link' => $model->isActive() ? $this->affiliates->link($model) : null,
                 'coupon_codes' => $model->couponCodes(),
+                'unknown_coupons' => $this->unknownCoupons($model->couponCodes()),
                 'commission_percent' => $model->commission_percent !== null ? Percent::format($model->commission_percent) : null,
                 'payout_method' => $model->payout_method ? __('affiliates::cp.method_'.$model->payout_method) : null,
                 'has_payout_details' => $model->payout_details !== null && $model->payout_details !== '',
@@ -203,10 +205,10 @@ class PartnersController extends CpController
 
         $model = Partner::query()->findOrFail($partner);
 
-        return PublishForm::make(Blueprints::partner(false))
+        return PublishForm::make(Blueprints::partner(false, $this->seesPayouts()))
             ->title($model->name)
             ->icon('users')
-            ->values(Blueprints::partnerValues($model))
+            ->values(Blueprints::partnerValues($model, $this->seesPayouts()))
             ->submittingTo(cp_route('affiliates.partners.update', $model->id));
     }
 
@@ -216,16 +218,22 @@ class PartnersController extends CpController
         Gate::authorize('manage affiliates');
 
         $model = Partner::query()->findOrFail($partner);
-        $values = PublishForm::make(Blueprints::partner(false))->submit($request->all());
+        $values = PublishForm::make(Blueprints::partner(false, $this->seesPayouts()))->submit($request->all());
         $email = mb_strtolower(trim((string) $values['email']));
+        $attributes = $this->attributes($values);
 
-        $this->ensureUnique($email, $values['code'] ?? null, $model);
+        $this->ensureUnique($email, $values['code'] ?? null, $attributes['coupon_codes'], $model);
 
         $wasActive = $model->isActive();
 
-        $attributes = $this->attributes($values);
         $status = $attributes['status'];
         unset($attributes['status']);
+
+        // Without the payout permission the form never showed the details,
+        // so what it sends back says nothing about them. Keep what is stored.
+        if (! $this->seesPayouts()) {
+            unset($attributes['payout_details']);
+        }
 
         $model->forceFill([
             ...$attributes,
@@ -299,9 +307,61 @@ class PartnersController extends CpController
         return $current !== null ? $current->code : Partner::freshCode($name);
     }
 
-    protected function ensureUnique(string $email, mixed $code, ?Partner $except = null): void
+    /**
+     * Codes statamic-offers has no coupon for. Such a code can never be on a
+     * payment, so the partner would never be credited through it. Only read,
+     * and only when offers is installed.
+     *
+     * @param  list<string>  $codes
+     * @return list<string>
+     */
+    protected function unknownCoupons(array $codes): array
+    {
+        $coupon = '\Goldnead\StatamicOffers\Models\Coupon';
+
+        if ($codes === [] || ! class_exists($coupon)) {
+            return [];
+        }
+
+        try {
+            $known = $coupon::query()->get(['code'])
+                ->map(fn ($c) => mb_strtoupper((string) $c->getAttribute('code')))
+                ->all();
+        } catch (\Throwable) {
+            return [];
+        }
+
+        return array_values(array_diff($codes, $known));
+    }
+
+    /** IBAN and PayPal address are for those who pay, not for everyone who manages partners. */
+    protected function seesPayouts(): bool
+    {
+        return Gate::allows('manage affiliate payouts');
+    }
+
+    /**
+     * @param  list<string>  $coupons
+     */
+    protected function ensureUnique(string $email, mixed $code, array $coupons, ?Partner $except = null): void
     {
         $errors = [];
+
+        // A coupon code names one partner per brand; two owners would leave
+        // attribution to row order. Brand-scoped query: the current brand.
+        if ($coupons !== []) {
+            $taken = Partner::query()->whereNotNull('coupon_codes')
+                ->when($except, fn ($q) => $q->whereKeyNot($except->getKey()))
+                ->get()
+                ->flatMap(fn (Partner $p) => $p->couponCodes())
+                ->intersect($coupons)
+                ->values()
+                ->all();
+
+            if ($taken !== []) {
+                $errors['coupon_codes'] = __('affiliates::cp.coupon_taken', ['codes' => implode(', ', $taken)]);
+            }
+        }
 
         $emailTaken = Partner::query()->where('email', $email)
             ->when($except, fn ($q) => $q->whereKeyNot($except->getKey()))

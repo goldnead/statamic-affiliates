@@ -44,6 +44,46 @@ class Payout extends Model
         ];
     }
 
+    /**
+     * Sum an open payout from its commissions as they are now.
+     *
+     * A refund or a hand cancellation between "create list" and "mark as
+     * paid" changes what the list owes; the stored total must follow, or the
+     * CSV pays out money the ledger already took back. Fully reversed rows
+     * leave the list; an open list left with nothing is deleted. A paid list
+     * is history and is never touched.
+     */
+    public static function refreshTotals(?int $payoutId): void
+    {
+        if ($payoutId === null) {
+            return;
+        }
+
+        $payout = static::query()->acrossBrands()->find($payoutId);
+
+        if ($payout === null || $payout->status !== self::STATUS_OPEN) {
+            return;
+        }
+
+        Commission::query()->acrossBrands()
+            ->where('payout_id', $payout->getKey())
+            ->where('status', Commission::STATUS_REVERSED)
+            ->update(['payout_id' => null]);
+
+        $rows = Commission::query()->acrossBrands()->where('payout_id', $payout->getKey())->get();
+
+        if ($rows->isEmpty()) {
+            $payout->delete();
+
+            return;
+        }
+
+        $payout->forceFill([
+            'amount_cent' => (int) $rows->sum(fn (Commission $c) => $c->payableCent()),
+            'commission_count' => $rows->count(),
+        ])->save();
+    }
+
     /** @return BelongsTo<Partner, $this> */
     public function partner(): BelongsTo
     {

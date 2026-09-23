@@ -129,7 +129,19 @@ class PaymentsBridge
         $meta = $payment->getAttribute('meta');
 
         return $payment->getAttribute('parent_payment_id') !== null
-            || (is_array($meta) && isset($meta['cycle_of']));
+            || (is_array($meta) && (isset($meta['cycle_of']) || isset($meta['subscription_change'])));
+    }
+
+    /** The first payment of a subscription: the lowest id that carries it. */
+    protected static function firstPaymentOf(int $subscriptionId, Model $payment): int
+    {
+        $id = $payment->newQuery()
+            ->where('subscription_id', $subscriptionId)
+            ->whereKeyNot($payment->getKey())
+            ->orderBy($payment->getKeyName())
+            ->value($payment->getKeyName());
+
+        return is_numeric($id) ? (int) $id : 0;
     }
 
     /** The paid payment as the ledger reads it. */
@@ -139,9 +151,16 @@ class PaymentsBridge
         $parent = $payment->getAttribute('parent_payment_id');
         $first = $meta['cycle_of']['first_payment_id'] ?? null;
 
+        $switched = $meta['subscription_change']['subscription_id'] ?? null;
+
         [$role, $origin] = match (true) {
             $parent !== null => [Sale::ROLE_UPSELL, (int) $parent],
             is_numeric($first) && (int) $first !== (int) $payment->getKey() => [Sale::ROLE_CYCLE, (int) $first],
+            // A plan switch charges the difference as its own payment. It
+            // belongs to the subscription it changes, so it is a renewal of
+            // that subscription's first payment and inherits its referral;
+            // origin 0 when that payment cannot be found, which means none.
+            is_array($meta['subscription_change'] ?? null) => [Sale::ROLE_CYCLE, is_numeric($switched) ? self::firstPaymentOf((int) $switched, $payment) : 0],
             default => [Sale::ROLE_FIRST, null],
         };
 

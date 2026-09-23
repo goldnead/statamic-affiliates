@@ -75,6 +75,8 @@ return [
     |
     | `coupon_wins`: a partner's coupon on the order beats a partner's link.
     | `self_referral`: whether partners earn on their own purchases.
+    | `partner_rate`: a partner's own percentage replaces the `main` rate of a
+    | sale only, or `all` rates including bumps and renewals.
     |
     */
 
@@ -92,6 +94,7 @@ return [
         'hold_days' => 30,
         'coupon_wins' => true,
         'self_referral' => false,
+        'partner_rate' => 'main',
     ],
 
     /*
@@ -126,6 +129,24 @@ return [
     'signup' => [
         'enabled' => true,
         'approval' => 'manual',
+        // How long an invitation link works. It only ever binds to the
+        // invited address. 0 means it does not expire.
+        'invite_days' => 14,
+    ],
+
+    /*
+    |--------------------------------------------------------------------------
+    | Joint ventures
+    |--------------------------------------------------------------------------
+    |
+    | `stack_with_referral`: whether a JV partner who also sent the buyer
+    | through their link earns the referral commission on top of their JV
+    | share. Off: one sale, one share.
+    |
+    */
+
+    'jv' => [
+        'stack_with_referral' => false,
     ],
 
     /*

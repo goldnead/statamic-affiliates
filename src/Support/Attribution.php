@@ -6,6 +6,7 @@ use Goldnead\Affiliates\Models\Partner;
 use Goldnead\Affiliates\Models\Referral;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Which partner a payment belongs to.
@@ -41,6 +42,19 @@ class Attribution
      * say. Null when nobody referred it.
      */
     public function forSale(Sale $sale): ?Referral
+    {
+        $referral = $this->resolve($sale);
+
+        // Only now is it a sale: a referral noted at a checkout nobody paid
+        // stays without a date and does not count in the partner's figures.
+        if ($referral !== null && $sale->role === Sale::ROLE_FIRST && $referral->paid_at === null) {
+            $referral->forceFill(['paid_at' => $sale->paidAt])->save();
+        }
+
+        return $referral;
+    }
+
+    protected function resolve(Sale $sale): ?Referral
     {
         $existing = Referral::query()->acrossBrands()->where('payment_id', $sale->originId())->first();
 
@@ -83,13 +97,28 @@ class Attribution
             return null;
         }
 
-        return Partner::query()
+        $owners = Partner::query()
             ->acrossBrands()
             ->where('status', Partner::STATUS_ACTIVE)
             ->whereNotNull('coupon_codes')
             ->get()
-            ->first(fn (Partner $partner) => in_array($code, $partner->couponCodes(), true)
-                && Brands::same($partner->brand_id, $paymentBrand));
+            ->filter(fn (Partner $partner) => in_array($code, $partner->couponCodes(), true)
+                && Brands::same($partner->brand_id, $paymentBrand))
+            ->values();
+
+        // The CP refuses a code a second partner of the brand already owns.
+        // Two owners anyway (older data, a direct write) is not a question the
+        // row order may answer: nobody gets the sale, and the log says why.
+        if ($owners->count() > 1) {
+            Log::warning('statamic-affiliates: a coupon code belongs to more than one partner; the sale is attributed to nobody.', [
+                'code' => $code,
+                'partners' => $owners->pluck('id')->all(),
+            ]);
+
+            return null;
+        }
+
+        return $owners->first();
     }
 
     protected function write(int $paymentId, Partner $partner, string $source, ?string $coupon, mixed $clickedAt): ?Referral

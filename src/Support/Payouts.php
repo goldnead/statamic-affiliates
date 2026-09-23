@@ -84,6 +84,17 @@ class Payouts
             return $payout;
         }
 
+        // Summed afresh: what the list owes is what its commissions are worth
+        // now, not what they were worth when the list was made.
+        Payout::refreshTotals($payout->getKey());
+
+        $payout = Payout::query()->acrossBrands()->find($payout->getKey());
+
+        if ($payout === null) {
+            // Everything on it was reversed in the meantime.
+            return new Payout;
+        }
+
         DB::transaction(function () use ($payout): void {
             $now = Carbon::now();
 

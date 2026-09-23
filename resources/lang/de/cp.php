@@ -79,6 +79,12 @@ return [
     'col_extras' => 'Auch für',
     'col_share' => 'Anteil',
     'col_period' => 'Laufzeit',
+    'col_sold_at' => 'Verkauft am',
+    'col_booked_at' => 'Gebucht am',
+    'payout_paid_on' => 'Bezahlt am :date',
+    'coupon_taken' => 'Schon einem anderen Partner zugeordnet: :codes',
+    'payout_details_hidden' => 'Nur mit dem Recht „Auszahlungen verwalten“ sichtbar und änderbar.',
+    'unknown_coupons' => 'Diese Codes gibt es in den Angeboten nicht, eine Bestellung kann sie also nie tragen: :codes',
 
     'partner_pending' => 'Wartet auf Freigabe',
     'partner_active' => 'Aktiv',

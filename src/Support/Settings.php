@@ -58,8 +58,10 @@ class Settings implements DescribesSettingsScreen, ProvidesSettings
                     static::field('commissions.default.bumps', 'boolean'),
                     static::field('commissions.default.upsells', 'boolean'),
                     static::field('commissions.vat_percent', 'integer', ['min' => 0, 'max' => 50]),
+                    static::field('commissions.partner_rate', 'select', ['options' => static::options('partner_rate', ['main', 'all'])]),
                     static::field('commissions.coupon_wins', 'boolean'),
                     static::field('commissions.self_referral', 'boolean'),
+                    static::field('jv.stack_with_referral', 'boolean'),
                 ],
             ],
             [
@@ -86,6 +88,7 @@ class Settings implements DescribesSettingsScreen, ProvidesSettings
                 'fields' => [
                     static::field('signup.enabled', 'boolean'),
                     static::field('signup.approval', 'select', ['options' => static::options('approval', ['manual', 'auto'])]),
+                    static::field('signup.invite_days', 'integer', ['min' => 0, 'max' => 365]),
                     static::field('mail.commission', 'boolean'),
                     static::field('mail.approved', 'boolean'),
                 ],

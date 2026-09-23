@@ -16,8 +16,14 @@ use Throwable;
  */
 class Blueprints
 {
-    public static function partner(bool $creating): BlueprintInstance
+    public static function partner(bool $creating, bool $payouts = true): BlueprintInstance
     {
+        // Without `manage affiliate payouts` the IBAN is not in the form at
+        // all: a masked, read-only line says that something is on file.
+        $details = $payouts
+            ? self::field('payout_details', ['type' => 'textarea', 'validate' => ['nullable', 'max:500']])
+            : self::field('payout_details_masked', ['type' => 'text', 'read_only' => true, 'display' => __('affiliates::cp.field_payout_details'), 'instructions' => __('affiliates::cp.payout_details_hidden')]);
+
         $main = [
             self::field('name', ['type' => 'text', 'validate' => ['required', 'max:191'], 'width' => 50]),
             self::field('email', ['type' => 'text', 'input_type' => 'email', 'validate' => ['required', 'email', 'max:191'], 'width' => 50]),
@@ -52,7 +58,7 @@ class Blueprints
                             'clearable' => true,
                             'width' => 50,
                         ]),
-                        self::field('payout_details', ['type' => 'textarea', 'validate' => ['nullable', 'max:500']]),
+                        $details,
                         self::field('notes', ['type' => 'textarea', 'validate' => ['nullable', 'max:2000']]),
                     ]],
                 ],
@@ -133,7 +139,28 @@ class Blueprints
     }
 
     /** @return array<string, mixed> */
-    public static function partnerValues(Partner $partner): array
+    public static function partnerValues(Partner $partner, bool $payouts = true): array
+    {
+        $values = self::partnerFields($partner);
+
+        if (! $payouts) {
+            unset($values['payout_details']);
+            $values['payout_details_masked'] = self::mask($partner->payout_details);
+        }
+
+        return $values;
+    }
+
+    /** "•••• 2051": that something is on file, and which, without the rest. */
+    public static function mask(?string $details): ?string
+    {
+        $plain = preg_replace('/\s+/', '', (string) $details) ?? '';
+
+        return $plain === '' ? null : '•••• '.mb_substr($plain, -4);
+    }
+
+    /** @return array<string, mixed> */
+    protected static function partnerFields(Partner $partner): array
     {
         return [
             'name' => $partner->name,

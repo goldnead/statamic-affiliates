@@ -7,6 +7,7 @@ use Goldnead\Affiliates\Events\CommissionReversed;
 use Goldnead\Affiliates\Models\Commission;
 use Goldnead\Affiliates\Models\JvContract;
 use Goldnead\Affiliates\Models\Partner;
+use Goldnead\Affiliates\Models\Payout;
 use Goldnead\Affiliates\Models\Rate;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
@@ -31,13 +32,10 @@ class Ledger
     public function book(Sale $sale): array
     {
         $booked = [];
+        $jvPartners = [];
 
         $referral = $this->attribution->forSale($sale);
         $partner = $referral ? Partner::query()->acrossBrands()->find($referral->partner_id) : null;
-
-        if ($partner !== null && $partner->isActive() && ! $this->isSelfReferral($partner, $sale)) {
-            $booked = [...$booked, ...Brands::runFor($partner->brand_id, fn () => $this->bookReferral($partner, $sale))];
-        }
 
         $contracts = JvContract::query()->acrossBrands()->where('active', true)->get();
 
@@ -56,6 +54,23 @@ class Ledger
 
             if ($row !== null) {
                 $booked[] = $row;
+            }
+
+            // A contract that covers the sale counts even when this delivery
+            // found it already booked: the stacking rule must not depend on
+            // whether PaymentPaid arrived once or twice.
+            if ($row !== null || $this->jvCovers($contract, $sale)) {
+                $jvPartners[] = $jvPartner->getKey();
+            }
+        }
+
+        if ($partner !== null && $partner->isActive() && ! $this->isSelfReferral($partner, $sale)) {
+            $stack = (bool) Brands::runFor($partner->brand_id, fn () => config('affiliates.jv.stack_with_referral', false));
+
+            // A joint-venture partner already has their share of this sale.
+            // Paying the referral on top would pay them twice for one buyer.
+            if ($stack || ! in_array($partner->getKey(), $jvPartners, true)) {
+                $booked = [...$booked, ...Brands::runFor($partner->brand_id, fn () => $this->bookReferral($partner, $sale))];
             }
         }
 
@@ -114,6 +129,9 @@ class Ledger
                     'reason' => $reason,
                 ])->save();
 
+                // Listed but not yet paid: the open list owes less now.
+                Payout::refreshTotals($fresh->payout_id);
+
                 CommissionReversed::dispatch($fresh);
             });
         }
@@ -132,6 +150,8 @@ class Ledger
             return;
         }
 
+        $payoutId = $commission->payout_id;
+
         $commission->forceFill([
             'reversed_cent' => $commission->amount_cent,
             'status' => Commission::STATUS_REVERSED,
@@ -139,6 +159,8 @@ class Ledger
             'reason' => $reason,
             'payout_id' => null,
         ])->save();
+
+        Payout::refreshTotals($payoutId);
 
         CommissionReversed::dispatch($commission);
     }
@@ -187,8 +209,8 @@ class Ledger
             }
 
             $percent = $rate['recurring_percent'] ?? $rate['percent'];
-            $amount = $this->amount($rate, $partner, $this->net($sale->amountCent), $percent);
-            $row = $this->write($partner, $sale, Commission::KIND_RECURRING, null, $sale->product, $this->net($sale->amountCent), $amount, $cycle, null, $this->describe($rate, $partner, $percent));
+            $amount = $this->amount($rate, $partner, $this->net($sale->amountCent), $percent, false);
+            $row = $this->write($partner, $sale, Commission::KIND_RECURRING, null, $sale->product, $this->net($sale->amountCent), $amount, $cycle, null, $this->describe($rate, $partner, $percent, false));
 
             return $row ? [$row] : [];
         }
@@ -205,8 +227,8 @@ class Ledger
                 }
 
                 $percent = $rate['bump_percent'] ?? $rate['percent'];
-                $amount = $this->amount($rate, $partner, $base, $percent);
-                $row = $this->write($partner, $sale, Commission::KIND_BUMP, $line['id'], $line['product'], $base, $amount, null, null, $this->describe($rate, $partner, $percent));
+                $amount = $this->amount($rate, $partner, $base, $percent, false);
+                $row = $this->write($partner, $sale, Commission::KIND_BUMP, $line['id'], $line['product'], $base, $amount, null, null, $this->describe($rate, $partner, $percent, false));
             } else {
                 // A fixed commission is paid once per sale, not once per line.
                 if ($rate['type'] === Rate::TYPE_FIXED && $fixedTaken) {
@@ -224,6 +246,21 @@ class Ledger
         }
 
         return $booked;
+    }
+
+    protected function jvCovers(JvContract $contract, Sale $sale): bool
+    {
+        if ($sale->role === Sale::ROLE_CYCLE && ! $contract->recurring) {
+            return false;
+        }
+
+        foreach ($sale->lines as $line) {
+            if ($contract->covers($line['product'], $sale->paidAt)) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     protected function bookJv(Partner $partner, JvContract $contract, Sale $sale): ?Commission
@@ -306,27 +343,40 @@ class Ledger
     }
 
     /** @param  array<string, mixed>  $rate */
-    protected function amount(array $rate, Partner $partner, int $base, ?float $percent): int
+    protected function amount(array $rate, Partner $partner, int $base, ?float $percent, bool $main = true): int
     {
         if ($rate['type'] === Rate::TYPE_FIXED) {
             return max(0, (int) ($rate['amount_cent'] ?? 0));
         }
 
-        $percent = $partner->commission_percent !== null ? (float) $partner->commission_percent : $percent;
-
-        return max(0, (int) round($base * (float) $percent / 100));
+        return max(0, (int) round($base * $this->effectivePercent($partner, $percent, $main) / 100));
     }
 
     /** @param  array<string, mixed>  $rate */
-    protected function describe(array $rate, Partner $partner, ?float $percent): string
+    protected function describe(array $rate, Partner $partner, ?float $percent, bool $main = true): string
     {
         if ($rate['type'] === Rate::TYPE_FIXED) {
             return 'fixed';
         }
 
-        $percent = $partner->commission_percent !== null ? (float) $partner->commission_percent : (float) $percent;
+        return Percent::plain($this->effectivePercent($partner, $percent, $main));
+    }
 
-        return Percent::plain($percent);
+    /**
+     * A partner's own percentage replaces the main rate of a sale (and of an
+     * upsell, which is a sale of its own). Bump and renewal rates stay the
+     * product's unless `commissions.partner_rate` is `all`: a VIP rate on the
+     * course is not a promise about every add-on and every month after.
+     */
+    protected function effectivePercent(Partner $partner, ?float $percent, bool $main): float
+    {
+        $all = config('affiliates.commissions.partner_rate', 'main') === 'all';
+
+        if ($partner->commission_percent !== null && ($main || $all)) {
+            return (float) $partner->commission_percent;
+        }
+
+        return (float) $percent;
     }
 
     protected function isSelfReferral(Partner $partner, Sale $sale): bool
@@ -394,6 +444,7 @@ class Ledger
                 'status' => $due ? Commission::STATUS_APPROVED : Commission::STATUS_PENDING,
                 'approved_at' => $due ? Carbon::now() : null,
                 'rate' => $rateLabel,
+                'sold_at' => $sale->paidAt,
                 'available_at' => $available,
                 'dedupe_key' => $key,
             ]);
@@ -412,7 +463,10 @@ class Ledger
             ->where('reverses_id', $paid->getKey())
             ->sum('amount_cent');
 
-        $delta = $target + $already;
+        // Only what went out can come back: a share reversed before the
+        // payout (reversed_cent) was never paid, and what earlier claw-backs
+        // took ($already, negative) is not taken twice.
+        $delta = max(0, $target - $paid->reversed_cent) + $already;
 
         if ($delta <= 0) {
             return;
@@ -433,6 +487,7 @@ class Ledger
             'status' => Commission::STATUS_APPROVED,
             'approved_at' => now(),
             'available_at' => now(),
+            'sold_at' => $paid->sold_at,
             'reason' => $reason,
             'dedupe_key' => 'clawback:'.$paid->getKey().':'.$target,
         ]);

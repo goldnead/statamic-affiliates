@@ -27,3 +27,17 @@ First version.
   collection.
 - Mails to partners on commission, invitation and approval through the brand's sender identity.
 - Events `CommissionEarned`, `CommissionReversed`, `PartnerApplied`, `PartnerApproved`.
+
+### Settlement and attribution rules (review round 2)
+- A refund after payout takes back only what was paid out; open payout lists are recomputed on
+  refunds and cancellations and summed afresh when marked paid.
+- Sales count only paid first payments; conversion counts link sales per click, capped at 100 %.
+- Coupon codes are unique per brand; an ambiguous code attributes to nobody. The partner screen
+  flags codes offers does not know.
+- Plan switches (`meta.subscription_change`) are renewals of the subscription's first payment.
+- `commissions.partner_rate` (`main` by default) and `jv.stack_with_referral` (off by default).
+- Commissions carry the sale date (`sold_at`) apart from the booking date. CSV amounts with a
+  decimal comma in German. Payout table in six columns.
+- Invitations expire (`signup.invite_days`) and bind only to the invited address. Payout details
+  in the CP only with `manage affiliate payouts`. The `go` link notes the referral itself, so it
+  works behind full static caching.

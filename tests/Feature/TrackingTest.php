@@ -109,7 +109,13 @@ it('counts a click once per visit and stores no address', function () {
 });
 
 it('redirects the short link to a page on this site only', function () {
-    $this->get('/!/affiliates/go/clara?to=/kurse/stimme')->assertRedirect('/kurse/stimme?ref=clara');
-    $this->get('/!/affiliates/go/clara?to=https://evil.example')->assertRedirect('/?ref=clara');
-    $this->get('/!/affiliates/go/clara?to=//evil.example')->assertRedirect('/?ref=clara');
+    $this->makePartner();
+
+    // The short link notes the referral itself, so it works behind full
+    // static caching, where `?ref=` on the target page never reaches PHP.
+    $this->get('/!/affiliates/go/clara?to=/kurse/stimme')
+        ->assertRedirect('/kurse/stimme')
+        ->assertCookie('statamic_affiliate');
+    $this->get('/!/affiliates/go/clara?to=https://evil.example')->assertRedirect('/');
+    $this->get('/!/affiliates/go/clara?to=//evil.example')->assertRedirect('/');
 });

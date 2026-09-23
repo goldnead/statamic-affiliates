@@ -22,6 +22,7 @@ use Illuminate\Support\Carbon;
  * @property string $source
  * @property string|null $coupon_code
  * @property Carbon|null $clicked_at
+ * @property Carbon|null $paid_at
  * @property Carbon|null $created_at
  */
 class Referral extends Model
@@ -40,6 +41,7 @@ class Referral extends Model
     {
         return [
             'clicked_at' => 'datetime',
+            'paid_at' => 'datetime',
         ];
     }
 

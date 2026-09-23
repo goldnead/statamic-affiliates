@@ -102,6 +102,19 @@ class Affiliates
             return null;
         }
 
+        // A link in a forwarded mail must not hand the record to whoever
+        // clicks it: it binds only to the address it was sent to, and only
+        // for as long as `signup.invite_days` says.
+        $days = (int) Brands::runFor($partner->brand_id, fn () => config('affiliates.signup.invite_days', 14));
+
+        if ($partner->invited_at === null || ($days > 0 && $partner->invited_at->copy()->addDays($days)->isPast())) {
+            return null;
+        }
+
+        if (mb_strtolower(trim((string) $user->email())) !== mb_strtolower(trim($partner->email))) {
+            return null;
+        }
+
         // One user, one partner record per brand.
         $taken = Partner::query()->acrossBrands()
             ->where('brand_id', $partner->brand_id)
@@ -171,7 +184,18 @@ class Affiliates
     public function stats(Partner $partner): array
     {
         $clicks = $partner->clicks()->count();
-        $sales = Referral::query()->acrossBrands()->where('partner_id', $partner->getKey())->count();
+
+        // Paid first payments only. A checkout that was started and never
+        // paid leaves a referral without `paid_at`; it is not a sale.
+        $paid = Referral::query()->acrossBrands()
+            ->where('partner_id', $partner->getKey())
+            ->whereNotNull('paid_at');
+
+        $sales = (clone $paid)->count();
+
+        // Conversion is clicks becoming sales, so only sales that came through
+        // a click count; a coupon sale needs no click. Never above 100 %.
+        $linkSales = (clone $paid)->where('source', Referral::SOURCE_LINK)->count();
 
         $money = Commission::query()->acrossBrands()
             ->where('partner_id', $partner->getKey())
@@ -194,7 +218,7 @@ class Affiliates
         return [
             'clicks' => $clicks,
             'sales' => $sales,
-            'conversion' => $clicks > 0 ? round($sales / $clicks * 100, 1) : null,
+            'conversion' => $clicks > 0 ? min(100.0, round($linkSales / $clicks * 100, 1)) : null,
             'money' => $money,
         ];
     }

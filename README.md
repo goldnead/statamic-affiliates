@@ -62,6 +62,12 @@ payment they follow; a cookie the buyer carries today does not re-attribute them
 
 Clicks are counted once per visit, with the landing path only: no IP address, no user agent.
 
+**Static caching.** With Statamic's full static caching (`strategy: full`) a cached page is served
+by the web server without PHP, so `?ref=` on it is never seen. Point partner links at
+`/!/affiliates/go/{code}?to=/page` instead: a dynamic route, always handled by PHP, which sets the
+cookie before redirecting. Alternatively add a web-server rule that bypasses the static cache for
+URLs carrying `ref=`. The half-measure strategy runs PHP on every request and needs nothing.
+
 ## Commissions
 
 Per product under **Affiliates → Commission Rates**, otherwise the default from the settings:
@@ -69,7 +75,9 @@ Per product under **Affiliates → Commission Rates**, otherwise the default fro
 - percent of the net amount, or a fixed amount once per sale;
 - renewals: none, the first *n*, or all, with their own percentage if wanted;
 - as an order bump and as an upsell, each switched on per product, bumps with their own percentage;
-- a partner can have an own percentage that replaces the product's.
+- a partner can have an own percentage. By default it replaces only the main rate of a sale (and
+  of an upsell); bump and renewal rates stay the product's. `commissions.partner_rate: all` makes
+  it replace every rate.
 
 Net is the amount paid, less `commissions.vat_percent` (0 for prices without VAT). Partners do not
 earn on purchases with their own address unless `commissions.self_referral` is on.
@@ -82,20 +90,34 @@ commission was paid out becomes a negative row the next payout list deducts.
 
 **Affiliates → JV Contracts**: a partner, the products (or all), a percentage of the net amount,
 separate percentages for bumps and upsells, whether renewals count, and a term. Every covered sale
-books a JV share, next to any referral commission. Settled and paid like a commission.
+books a JV share. A JV partner who also sent the buyer through their own link does not earn the
+referral commission on top (`jv.stack_with_referral`, off by default); other partners' referrals
+are booked as usual. Settled and paid like a commission.
+
+A plan switch in statamic-payments (the difference charge, `meta.subscription_change`) counts as a
+renewal of the subscription's first payment and inherits its referral; it is never attributed by
+the cookie the buyer carries at that moment.
 
 ## Payouts
 
 **Affiliates → Payouts → Create Payout List** gathers every payable commission per partner and
 currency; partners below `payouts.minimum_cent` wait for the next list. Export the open lists as
 CSV (semicolon, UTF-8 with BOM; names are escaped against spreadsheet formulas), pay, and mark each
-line as paid. Payout details (IBAN, PayPal address) are stored encrypted.
+line as paid. A refund or a cancellation between creating the list and marking it paid recomputes
+the open line; marking it paid sums it afresh, and the CSV carries that sum. A refund after the
+payout takes back exactly what went out. CSV amounts use a decimal comma in German.
+
+Payout details (IBAN, PayPal address) are stored encrypted and shown in the Control Panel only to
+users with `manage affiliate payouts`; others see a masked line.
+
+A partner's sales are paid first payments only; the conversion rate counts link sales per click
+and never exceeds 100 %. A coupon code belongs to one partner per brand.
 
 ## Usage: the partner area
 
 Signing up needs a signed-in user. Applications wait for approval (`signup.approval`), or are
-active at once. Partners created in the Control Panel get an invitation link that binds the record
-to whoever signs in and opens it.
+active at once. Partners created in the Control Panel get an invitation link. It works for
+`signup.invite_days` (14) and only for a signed-in user with the invited email address.
 
 ```antlers
 {{ affiliates:dashboard }}                                 the whole area (overridable view)
