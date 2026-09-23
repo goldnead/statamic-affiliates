@@ -1,8 +1,0 @@
-{
-    "_why": {
-        "release.versioning": "The first tag is set by the suite orchestrator after the Gauntlet review, not by the build (brief of 23.09.2026). Until then the rule would turn the CI standards job red on every push for a decision that is not this repository's to make. Lowered to minor, not disabled; raise it back once v0.1.0 exists."
-    },
-    "severity": {
-        "release.versioning": "minor"
-    }
-}
