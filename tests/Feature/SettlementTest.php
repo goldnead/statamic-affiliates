@@ -23,6 +23,12 @@ beforeEach(function () {
     $this->pay($this->payment);
 });
 
+/** As an int: MySQL returns SUM() as a string, SQLite as a number. */
+function clawedBack(): int
+{
+    return (int) Commission::query()->where('kind', Commission::KIND_CLAWBACK)->sum('amount_cent');
+}
+
 function refund($payment, int $total, bool $full): void
 {
     $payment->forceFill(['refunded_cent' => $total])->save();
@@ -41,11 +47,11 @@ it('claws back only what was actually paid out after a partial refund before the
     // Then the rest is refunded. Only the 2250 that went out come back.
     refund($this->payment, 10000, true);
 
-    expect(Commission::query()->where('kind', Commission::KIND_CLAWBACK)->sum('amount_cent'))->toBe(-2250);
+    expect(clawedBack())->toBe(-2250);
 
     // And the same refund again takes nothing more.
     refund($this->payment, 10000, true);
-    expect(Commission::query()->where('kind', Commission::KIND_CLAWBACK)->sum('amount_cent'))->toBe(-2250);
+    expect(clawedBack())->toBe(-2250);
 });
 
 it('recomputes an open payout when a refund arrives before it is marked paid', function () {
@@ -63,7 +69,7 @@ it('recomputes an open payout when a refund arrives before it is marked paid', f
 
     // Refunded in full after that: 1500 went out, 1500 comes back.
     refund($this->payment, 10000, true);
-    expect(Commission::query()->where('kind', Commission::KIND_CLAWBACK)->sum('amount_cent'))->toBe(-1500);
+    expect(clawedBack())->toBe(-1500);
 });
 
 it('drops a fully refunded commission from an open payout', function () {
