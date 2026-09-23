@@ -255,7 +255,7 @@ class Ledger
             return null;
         }
 
-        return $this->write($partner, $sale, Commission::KIND_JV, null, $sale->product, $base, $amount, null, $contract, rtrim(rtrim((string) $contract->percent, '0'), '.').' %');
+        return $this->write($partner, $sale, Commission::KIND_JV, null, $sale->product, $base, $amount, null, $contract, Percent::plain($contract->percent));
     }
 
     /**
@@ -326,7 +326,7 @@ class Ledger
 
         $percent = $partner->commission_percent !== null ? (float) $partner->commission_percent : (float) $percent;
 
-        return rtrim(rtrim(number_format($percent, 2, '.', ''), '0'), '.').' %';
+        return Percent::plain($percent);
     }
 
     protected function isSelfReferral(Partner $partner, Sale $sale): bool

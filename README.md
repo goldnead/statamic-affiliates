@@ -14,7 +14,8 @@ Commercial.
 ## Requirements
 
 - PHP 8.2+, Laravel 12.40+ or 13, Statamic 6
-- goldnead/statamic-brand-context 1.13+ (brand scoping, per-brand settings, sender identity)
+- goldnead/statamic-brand-context 1.14+ (brand scoping, per-brand settings with their own tab,
+  sender identity)
 - goldnead/statamic-payments 1.24+ for anything to be attributed (optional, `suggest`)
 - goldnead/statamic-offers for partner coupons (optional; nothing of offers is read but the code
   on the payment)

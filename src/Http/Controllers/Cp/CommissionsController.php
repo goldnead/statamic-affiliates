@@ -7,6 +7,7 @@ use Goldnead\Affiliates\Models\Commission;
 use Goldnead\Affiliates\Models\Partner;
 use Goldnead\Affiliates\Support\Ledger;
 use Goldnead\Affiliates\Support\Money;
+use Goldnead\Affiliates\Support\Percent;
 use Goldnead\Affiliates\Support\Setup;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Gate;
@@ -75,12 +76,16 @@ class CommissionsController extends CpController
             'payment' => '#'.$c->payment_id,
             'base' => Money::format($c->base_cent, $c->currency),
             'amount' => Money::format($c->payableCent(), $c->currency),
-            'rate' => $c->rate === 'fixed' ? __('affiliates::cp.type_fixed') : $c->rate,
+            'rate' => match (true) {
+                $c->rate === 'fixed' => __('affiliates::cp.type_fixed'),
+                is_numeric($c->rate) => Percent::format($c->rate),
+                default => (string) $c->rate,
+            },
             'status' => $c->status,
             'status_label' => __('affiliates::cp.status_'.$c->status),
             'created_at' => $c->created_at?->toIso8601String(),
             'available_at' => $c->available_at?->toIso8601String(),
-            'actions' => $cancellable ? [[
+            'row_actions' => $cancellable ? [[
                 'text' => __('affiliates::cp.cancel_commission'),
                 'url' => cp_route('affiliates.commissions.cancel', $c->id),
                 'method' => 'post',

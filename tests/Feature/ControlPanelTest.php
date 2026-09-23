@@ -30,6 +30,18 @@ it('renders every screen for a super user', function (string $route) {
     'affiliates.jv.create',
 ]);
 
+it('never hands the listing a row key named actions', function () {
+    // Core's <Listing> reads `actions` as server-side Statamic actions; our
+    // own menu entries under that key blanked the whole page in the browser.
+    $this->makePartner();
+
+    $this->actingAs($this->superUser())
+        ->get(cp_route('affiliates.partners.index'))
+        ->assertInertia(fn (AssertableInertia $page) => $page
+            ->has('rows.0.row_actions')
+            ->missing('rows.0.actions'));
+});
+
 it('shows the setup screen instead of a 500 when the migrations have not run', function () {
     Schema::drop('affiliate_payouts');
 

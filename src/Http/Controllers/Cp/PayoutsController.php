@@ -54,7 +54,7 @@ class PayoutsController extends CpController
                 'status_label' => __('affiliates::cp.payout_'.$p->status),
                 'created_at' => $p->created_at?->toIso8601String(),
                 'paid_at' => $p->paid_at?->toIso8601String(),
-                'actions' => array_values(array_filter([
+                'row_actions' => array_values(array_filter([
                     ['text' => __('affiliates::cp.export_csv'), 'url' => cp_route('affiliates.payouts.csv', ['payout' => $p->id]), 'icon' => 'download', 'download' => true],
                     $p->status === Payout::STATUS_OPEN ? [
                         'text' => __('affiliates::cp.mark_paid'),

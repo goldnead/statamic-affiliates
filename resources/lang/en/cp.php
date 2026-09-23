@@ -161,6 +161,7 @@ return [
     'field_products' => 'Products',
     'field_products_instructions' => 'Leave empty for all products.',
     'field_upsell_percent' => 'Percent on upsells',
+    'field_jv_recurring' => 'Share renewals too',
     'field_starts_on' => 'Starts on',
     'field_ends_on' => 'Ends on',
 
@@ -208,7 +209,7 @@ return [
     'payouts_built' => 'One payout created|:count payouts created',
     'payouts_none_built' => 'Nobody reached the minimum. Nothing was created.',
     'payouts_due' => 'Payable and not yet listed: :amount. Partners below :minimum wait for the next list.',
-    'payouts_nothing_due' => 'Nothing is payable right now.',
+    'payouts_nothing_due' => 'Everything payable is already on a list.',
 
     'rates_default' => 'Default rate for every other product: :rate (in the settings).',
     'rate_deleted' => 'Rate deleted',

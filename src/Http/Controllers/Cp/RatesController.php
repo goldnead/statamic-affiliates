@@ -6,6 +6,7 @@ use Goldnead\Affiliates\Http\Controllers\Cp\Concerns\RendersListing;
 use Goldnead\Affiliates\Models\Rate;
 use Goldnead\Affiliates\Support\Blueprints;
 use Goldnead\Affiliates\Support\Money;
+use Goldnead\Affiliates\Support\Percent;
 use Goldnead\Affiliates\Support\Setup;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -46,7 +47,7 @@ class RatesController extends CpController
             ])) ?: '—',
             'status' => $r->active ? 'active' : 'inactive',
             'status_label' => $r->active ? __('affiliates::cp.active') : __('affiliates::cp.inactive'),
-            'actions' => [
+            'row_actions' => [
                 ['text' => __('affiliates::cp.edit'), 'url' => cp_route('affiliates.rates.edit', $r->id), 'icon' => 'pencil'],
                 ['text' => __('affiliates::cp.delete'), 'url' => cp_route('affiliates.rates.destroy', $r->id), 'method' => 'delete', 'icon' => 'trash', 'destructive' => true, 'confirm' => __('affiliates::cp.delete_rate_confirm')],
             ],
@@ -185,6 +186,6 @@ class RatesController extends CpController
             return Money::format((int) $amountCent, 'EUR').' '.__('affiliates::cp.per_sale');
         }
 
-        return rtrim(rtrim(number_format((float) $percent, 2, ',', ''), '0'), ',').' %';
+        return Percent::format($percent);
     }
 }

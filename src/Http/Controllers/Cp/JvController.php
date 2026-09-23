@@ -55,7 +55,7 @@ class JvController extends CpController
             'earned' => ($earned[$c->id] ?? collect())->map(fn ($r) => Money::format((int) $r->total, (string) $r->currency))->implode(' · ') ?: '—',
             'status' => $c->active ? 'active' : 'inactive',
             'status_label' => $c->active ? __('affiliates::cp.active') : __('affiliates::cp.inactive'),
-            'actions' => [
+            'row_actions' => [
                 ['text' => __('affiliates::cp.edit'), 'url' => cp_route('affiliates.jv.edit', $c->id), 'icon' => 'pencil'],
                 ['text' => __('affiliates::cp.delete'), 'url' => cp_route('affiliates.jv.destroy', $c->id), 'method' => 'delete', 'icon' => 'trash', 'destructive' => true, 'confirm' => __('affiliates::cp.delete_jv_confirm')],
             ],

@@ -10,6 +10,7 @@ use Goldnead\Affiliates\Models\Partner;
 use Goldnead\Affiliates\Models\Payout;
 use Goldnead\Affiliates\Support\Blueprints;
 use Goldnead\Affiliates\Support\Money;
+use Goldnead\Affiliates\Support\Percent;
 use Goldnead\Affiliates\Support\Setup;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -61,7 +62,9 @@ class PartnersController extends CpController
             'status_label' => __('affiliates::cp.partner_'.$p->status),
             'earned' => ($earned[$p->id] ?? collect())->map(fn ($r) => Money::format((int) $r->total, (string) $r->currency))->implode(' · ') ?: '—',
             'created_at' => $p->created_at?->toIso8601String(),
-            'actions' => array_values(array_filter([
+            // Not `actions`: core's <Listing> reads that key as server-side
+            // Statamic actions and fails to render the row.
+            'row_actions' => array_values(array_filter([
                 ['text' => __('affiliates::cp.open'), 'url' => cp_route('affiliates.partners.show', $p->id), 'icon' => 'eye'],
                 Gate::allows('manage affiliates') ? ['text' => __('affiliates::cp.edit'), 'url' => cp_route('affiliates.partners.edit', $p->id), 'icon' => 'pencil'] : null,
                 Gate::allows('manage affiliates') && $p->status === Partner::STATUS_PENDING
@@ -146,7 +149,7 @@ class PartnersController extends CpController
 
         $contracts = JvContract::query()->where('partner_id', $model->id)->get()->map(fn (JvContract $c) => [
             'name' => $c->name,
-            'percent' => rtrim(rtrim((string) $c->percent, '0'), '.').' %',
+            'percent' => Percent::format($c->percent),
             'active' => $c->active,
             'url' => cp_route('affiliates.jv.edit', $c->id),
         ])->all();
@@ -161,7 +164,7 @@ class PartnersController extends CpController
                 'status_label' => __('affiliates::cp.partner_'.$model->status),
                 'link' => $model->isActive() ? $this->affiliates->link($model) : null,
                 'coupon_codes' => $model->couponCodes(),
-                'commission_percent' => $model->commission_percent !== null ? rtrim(rtrim((string) $model->commission_percent, '0'), '.').' %' : null,
+                'commission_percent' => $model->commission_percent !== null ? Percent::format($model->commission_percent) : null,
                 'payout_method' => $model->payout_method ? __('affiliates::cp.method_'.$model->payout_method) : null,
                 'has_payout_details' => $model->payout_details !== null && $model->payout_details !== '',
                 'website' => $model->website,
@@ -174,7 +177,7 @@ class PartnersController extends CpController
             'stats' => [
                 'clicks' => $stats['clicks'],
                 'sales' => $stats['sales'],
-                'conversion' => $stats['conversion'],
+                'conversion' => $stats['conversion'] !== null ? Percent::format($stats['conversion']) : null,
                 'money' => array_map(fn ($m) => [
                     'currency' => $m['currency'],
                     'pending' => Money::format($m['pending'], $m['currency']),

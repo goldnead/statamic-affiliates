@@ -116,7 +116,7 @@ class Blueprints
                         self::field('partner_id', ['type' => 'select', 'options' => $partners, 'validate' => ['required'], 'width' => 50]),
                         self::productField('products', true),
                         self::field('active', ['type' => 'toggle', 'default' => true, 'width' => 50]),
-                        self::field('recurring', ['type' => 'toggle', 'default' => true, 'width' => 50]),
+                        self::field('recurring', ['type' => 'toggle', 'default' => true, 'width' => 50, 'display' => __('affiliates::cp.field_jv_recurring')]),
                     ]],
                     ['display' => __('affiliates::cp.section_jv_share'), 'fields' => [
                         self::field('percent', ['type' => 'float', 'validate' => ['required', 'numeric', 'min:0', 'max:100'], 'width' => 33]),

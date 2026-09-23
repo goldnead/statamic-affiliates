@@ -24,7 +24,7 @@
     },
     "require": {
         "php": "^8.2",
-        "goldnead/statamic-brand-context": "^1.13",
+        "goldnead/statamic-brand-context": "^1.14",
         "laravel/framework": "^12.40|^13.0",
         "statamic/cms": "^6.0"
     },

@@ -64,7 +64,7 @@
             <dl class="affiliates-stats">
                 <div><dt>{{ trans key="affiliates::messages.stat_clicks" }}</dt><dd>{{ clicks }}</dd></div>
                 <div><dt>{{ trans key="affiliates::messages.stat_sales" }}</dt><dd>{{ sales }}</dd></div>
-                <div><dt>{{ trans key="affiliates::messages.stat_conversion" }}</dt><dd>{{ if conversion !== null }}{{ conversion }} %{{ else }}–{{ /if }}</dd></div>
+                <div><dt>{{ trans key="affiliates::messages.stat_conversion" }}</dt><dd>{{ conversion ?? '–' }}</dd></div>
                 {{ money }}
                     <div><dt>{{ trans key="affiliates::messages.stat_pending" }} ({{ currency }})</dt><dd>{{ pending }}</dd></div>
                     <div><dt>{{ trans key="affiliates::messages.stat_approved" }} ({{ currency }})</dt><dd>{{ approved }}</dd></div>

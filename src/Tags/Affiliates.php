@@ -7,6 +7,7 @@ use Goldnead\Affiliates\Models\Commission;
 use Goldnead\Affiliates\Models\Partner;
 use Goldnead\Affiliates\Models\Payout;
 use Goldnead\Affiliates\Support\Money;
+use Goldnead\Affiliates\Support\Percent;
 use Statamic\Facades\Collection;
 use Statamic\Facades\Entry;
 use Statamic\Facades\User;
@@ -207,7 +208,7 @@ class Affiliates extends Tags
             'coupon_codes' => $partner->couponCodes(),
             'clicks' => $stats['clicks'],
             'sales' => $stats['sales'],
-            'conversion' => $stats['conversion'],
+            'conversion' => $stats['conversion'] !== null ? Percent::format($stats['conversion']) : null,
             'money' => array_map(fn (array $row) => [
                 'currency' => $row['currency'],
                 'pending' => Money::format($row['pending'], $row['currency']),

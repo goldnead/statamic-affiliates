@@ -3,6 +3,7 @@
 use Goldnead\Affiliates\Models\Commission;
 use Goldnead\Affiliates\Models\JvContract;
 use Goldnead\Affiliates\Models\Referral;
+use Goldnead\Affiliates\Support\Percent;
 use Goldnead\StatamicPayments\Models\PaymentItem;
 
 function contract($partner, array $attributes = []): JvContract
@@ -24,6 +25,12 @@ it('books a joint-venture share of the net amount, without any link', function (
     $this->pay($this->makePayment(['product' => 'workshop', 'amount_cent' => 11900]));
 
     $c = Commission::query()->sole();
+    // "30 %", not "3 %": a whole-number decimal came back from SQLite as "30"
+    // and lost its zero to a rtrim meant for "30.00".
+    expect($c->rate)->toBe('40');
+    expect(Percent::format('30', 'de'))->toBe('30 %')
+        ->and(Percent::format('12.50', 'de'))->toBe('12,5 %')
+        ->and(Percent::format(100, 'en'))->toBe('100 %');
     expect($c->kind)->toBe(Commission::KIND_JV)
         ->and($c->jv_contract_id)->toBe($contract->id)
         ->and($c->base_cent)->toBe(10000)

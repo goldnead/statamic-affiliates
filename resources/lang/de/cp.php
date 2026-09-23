@@ -161,6 +161,7 @@ return [
     'field_products' => 'Produkte',
     'field_products_instructions' => 'Leer lassen für alle Produkte.',
     'field_upsell_percent' => 'Prozent auf Upsells',
+    'field_jv_recurring' => 'Anteil auch an Folgezahlungen',
     'field_starts_on' => 'Gilt ab',
     'field_ends_on' => 'Gilt bis',
 
@@ -208,7 +209,7 @@ return [
     'payouts_built' => 'Eine Auszahlung erstellt|:count Auszahlungen erstellt',
     'payouts_none_built' => 'Niemand hat den Mindestbetrag erreicht. Nichts erstellt.',
     'payouts_due' => 'Auszahlbar und noch in keiner Liste: :amount. Partner unter :minimum warten auf die nächste Liste.',
-    'payouts_nothing_due' => 'Gerade ist nichts auszahlbar.',
+    'payouts_nothing_due' => 'Alles Auszahlbare steht schon in einer Liste.',
 
     'rates_default' => 'Standardsatz für alle anderen Produkte: :rate (in den Einstellungen).',
     'rate_deleted' => 'Satz gelöscht',

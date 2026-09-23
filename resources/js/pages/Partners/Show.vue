@@ -225,7 +225,7 @@ function copyLink() {
                         </div>
                         <div class="py-3 flex justify-between gap-2">
                             <dt class="text-gray-500 dark:text-gray-400">{{ __('affiliates::cp.conversion') }}</dt>
-                            <dd class="font-medium">{{ stats.conversion !== null ? `${stats.conversion} %` : '—' }}</dd>
+                            <dd class="font-medium">{{ stats.conversion ?? '—' }}</dd>
                         </div>
                         <template v-for="money in stats.money" :key="money.currency">
                             <div class="py-3 flex justify-between gap-2">
@@ -285,7 +285,7 @@ function copyLink() {
                 </template>
                 <template #prepended-row-actions="{ row }">
                     <DropdownItem
-                        v-for="action in row.actions"
+                        v-for="action in row.row_actions"
                         :key="action.url"
                         :text="action.text"
                         :icon="action.icon"

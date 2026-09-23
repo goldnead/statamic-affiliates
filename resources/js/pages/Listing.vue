@@ -217,7 +217,7 @@ function cellText(row, column) {
 
                 <template #prepended-row-actions="{ row }">
                     <DropdownItem
-                        v-for="action in row.actions || []"
+                        v-for="action in row.row_actions || []"
                         :key="action.url + action.text"
                         :text="action.text"
                         :icon="action.icon"
