@@ -51,3 +51,9 @@ First version.
 - Claw-back rows read "offset" instead of a zero base.
 - The partner screen shows the `go` short link with a note on static caching.
 - Refunded sales and own purchases no longer count as sales in the partner's figures.
+
+### Demo fix
+- `affiliates:install` gives the material image field an asset container
+  (`materials.container`, or the site's first) and repairs an existing blueprint without one.
+  With several containers the partner area answered 500 (UndefinedContainerException). An
+  unreadable image is now logged and left out instead of taking the page down.

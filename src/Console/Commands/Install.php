@@ -3,6 +3,7 @@
 namespace Goldnead\Affiliates\Console\Commands;
 
 use Illuminate\Console\Command;
+use Statamic\Facades\AssetContainer;
 use Statamic\Facades\Blueprint;
 use Statamic\Facades\Collection;
 
@@ -28,8 +29,10 @@ class Install extends Command
         }
 
         $namespace = 'collections.'.$handle;
+        $container = $this->container();
 
-        if (Blueprint::find($namespace.'.'.$handle)) {
+        if ($existing = Blueprint::find($namespace.'.'.$handle)) {
+            $this->repairContainer($existing, $container);
             $this->line('Blueprint exists, kept.');
 
             return self::SUCCESS;
@@ -51,12 +54,74 @@ class Install extends Command
                 ]],
                 ['handle' => 'target_url', 'field' => ['type' => 'text', 'display' => __('affiliates::cp.material_target'), 'instructions' => __('affiliates::cp.material_target_instructions')]],
                 ['handle' => 'copy', 'field' => ['type' => 'textarea', 'display' => __('affiliates::cp.material_copy'), 'instructions' => __('affiliates::cp.material_copy_instructions')]],
-                ['handle' => 'image', 'field' => ['type' => 'assets', 'display' => __('affiliates::cp.material_image'), 'max_files' => 1]],
+                ['handle' => 'image', 'field' => array_filter([
+                    'type' => 'assets',
+                    'display' => __('affiliates::cp.material_image'),
+                    'max_files' => 1,
+                    'container' => $container,
+                ], fn ($v) => $v !== null)],
             ],
         ]]]]])->save();
 
         $this->info('Blueprint created.');
 
         return self::SUCCESS;
+    }
+
+    /**
+     * The container for the image field: `affiliates.materials.container`,
+     * or the site's first one. Without it an assets field cannot tell which
+     * container to read once a site has more than one, and the partner area
+     * answers 500 (UndefinedContainerException) as soon as a partner signs in.
+     */
+    protected function container(): ?string
+    {
+        $configured = config('affiliates.materials.container');
+
+        if (is_string($configured) && $configured !== '' && AssetContainer::find($configured)) {
+            return $configured;
+        }
+
+        $first = AssetContainer::all()->first();
+
+        if ($first === null) {
+            $this->warn('No asset container exists; the image field has none. Run affiliates:install again after creating one.');
+
+            return null;
+        }
+
+        return $first->handle();
+    }
+
+    /** An existing blueprint whose image field has no container gets one. */
+    protected function repairContainer(\Statamic\Fields\Blueprint $blueprint, ?string $container): void
+    {
+        if ($container === null) {
+            return;
+        }
+
+        $changed = false;
+
+        $walk = function (array $node) use (&$walk, $container, &$changed): array {
+            if (($node['type'] ?? null) === 'assets' && empty($node['container'])) {
+                $node['container'] = $container;
+                $changed = true;
+            }
+
+            foreach ($node as $key => $value) {
+                if (is_array($value)) {
+                    $node[$key] = $walk($value);
+                }
+            }
+
+            return $node;
+        };
+
+        $contents = $walk($blueprint->contents());
+
+        if ($changed) {
+            $blueprint->setContents($contents)->save();
+            $this->info("Image field set to container [{$container}].");
+        }
     }
 }

@@ -194,6 +194,8 @@ return [
 
     'materials' => [
         'collection' => 'affiliate_materials',
+        // The asset container for the image field. Empty: the site's first.
+        'container' => env('AFFILIATES_MATERIALS_CONTAINER'),
     ],
 
     /*

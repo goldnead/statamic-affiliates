@@ -8,6 +8,7 @@ use Goldnead\Affiliates\Models\Partner;
 use Goldnead\Affiliates\Models\Payout;
 use Goldnead\Affiliates\Support\Money;
 use Goldnead\Affiliates\Support\Percent;
+use Illuminate\Support\Facades\Log;
 use Statamic\Facades\Collection;
 use Statamic\Facades\Entry;
 use Statamic\Facades\User;
@@ -132,7 +133,7 @@ class Affiliates extends Tags
                     'title' => $entry->get('title'),
                     'kind' => $entry->get('kind'),
                     'copy' => $copy,
-                    'image' => $entry->augmentedValue('image'),
+                    'image' => $this->image($entry),
                     'link' => $link,
                 ];
             })
@@ -217,6 +218,25 @@ class Affiliates extends Tags
                 'paid' => Money::format($row['paid'], $row['currency']),
             ], $stats['money']),
         ];
+    }
+
+    /**
+     * The material's image, or nothing. An image field without a container
+     * on a site with several throws; that is a setup fault (run
+     * affiliates:install again) and must not take the partner's page down.
+     */
+    protected function image(mixed $entry): mixed
+    {
+        try {
+            return $entry->augmentedValue('image');
+        } catch (\Throwable $e) {
+            Log::warning('statamic-affiliates: a material image could not be read; run php artisan affiliates:install to give the field a container.', [
+                'entry' => $entry->id(),
+                'exception' => $e->getMessage(),
+            ]);
+
+            return null;
+        }
     }
 
     protected function current(): ?Partner

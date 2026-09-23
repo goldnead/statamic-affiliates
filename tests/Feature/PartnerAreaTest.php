@@ -7,6 +7,8 @@ use Goldnead\Affiliates\Models\Partner;
 use Goldnead\Affiliates\Models\Referral;
 use Illuminate\Support\Facades\Mail;
 use Statamic\Facades\Antlers;
+use Statamic\Facades\AssetContainer;
+use Statamic\Facades\Blueprint;
 use Statamic\Facades\Entry;
 
 function antlers(string $template): string
@@ -140,6 +142,35 @@ it('keeps commissions of other partners out of the loop', function () {
 
     expect(Commission::query()->count())->toBe(2)
         ->and(antlers('{{ affiliates:commissions }}x{{ /affiliates:commissions }}'))->toBe('x');
+});
+
+it('gives the material image field a container when there are several', function () {
+    AssetContainer::make('assets')->disk('local')->save();
+    AssetContainer::make('marken')->disk('local')->save();
+
+    $this->artisan('affiliates:install')->assertSuccessful();
+
+    $image = Blueprint::find('collections.affiliate_materials.affiliate_materials')->field('image');
+    expect($image->get('container'))->toBe('assets');
+
+    // Configured container wins; an install that already has the blueprint
+    // without a container is repaired rather than kept broken.
+    config()->set('affiliates.materials.container', 'marken');
+    $blueprint = Blueprint::find('collections.affiliate_materials.affiliate_materials');
+    $contents = $blueprint->contents();
+    unset($contents['tabs']['main']['sections'][0]['fields'][4]['field']['container']);
+    $blueprint->setContents($contents)->save();
+
+    $this->artisan('affiliates:install')->assertSuccessful();
+    expect(Blueprint::find('collections.affiliate_materials.affiliate_materials')->field('image')->get('container'))->toBe('marken');
+
+    // And the partner area renders with a signed-in partner.
+    Entry::make()->collection('affiliate_materials')->slug('banner')->data(['title' => 'Banner', 'copy' => '{link}'])->save();
+    $user = $this->member();
+    $this->makePartner(['user_id' => (string) $user->id()]);
+    $this->actingAs($user);
+
+    expect(antlers('{{ affiliates:dashboard }}'))->toContain('Banner');
 });
 
 it('installs the material collection and fills in the partner\'s link', function () {

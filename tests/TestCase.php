@@ -109,6 +109,13 @@ abstract class TestCase extends AddonTestCase
 
     protected function defineEnvironment($app): void
     {
+        // Blueprints are files, not Stache items: affiliates:install would
+        // write them into the Testbench app in vendor/, where they outlive the
+        // run and the next install finds "exists, kept". A directory of their
+        // own, wiped per test (as in statamic-courses).
+        $app['config']->set('statamic.system.blueprints_path', static::blueprintsPath());
+        $app['files']->deleteDirectory(static::blueprintsPath());
+
         $app['config']->set('database.default', 'testing');
         $app['config']->set('database.connections.testing', $this->testingConnection());
         $app['config']->set('app.key', 'base64:'.base64_encode(random_bytes(32)));
@@ -122,6 +129,18 @@ abstract class TestCase extends AddonTestCase
         $app['config']->set('affiliates.consent.mode', 'always');
         $app['config']->set('affiliates.commissions.hold_days', 30);
         $app['config']->set('affiliates.commissions.default.percent', 30);
+    }
+
+    public static function blueprintsPath(): string
+    {
+        return __DIR__.'/__fixtures__/blueprints';
+    }
+
+    protected function tearDown(): void
+    {
+        $this->app['files']->deleteDirectory(static::blueprintsPath());
+
+        parent::tearDown();
     }
 
     /**
