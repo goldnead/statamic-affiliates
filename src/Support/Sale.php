@@ -20,6 +20,12 @@ final class Sale
     /** A renewal of a subscription. */
     public const ROLE_CYCLE = 'cycle';
 
+    /**
+     * The difference charged when a subscription changes plan. Earns like a
+     * renewal, but is not one: it does not count towards "the first n".
+     */
+    public const ROLE_SWITCH = 'switch';
+
     /** A follow-up offer accepted after another payment. */
     public const ROLE_UPSELL = 'upsell';
 
@@ -40,6 +46,12 @@ final class Sale
         public readonly Carbon $paidAt,
         public readonly array $lines,
     ) {}
+
+    /** A renewal or a plan switch: a payment on a running subscription. */
+    public function isRecurring(): bool
+    {
+        return $this->role === self::ROLE_CYCLE || $this->role === self::ROLE_SWITCH;
+    }
 
     /** The payment whose referral this sale inherits. Itself for a first payment. */
     public function originId(): int

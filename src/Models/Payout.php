@@ -2,6 +2,7 @@
 
 namespace Goldnead\Affiliates\Models;
 
+use Goldnead\Affiliates\Support\Brands;
 use Goldnead\BrandContext\Concerns\HasBrand;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -71,15 +72,26 @@ class Payout extends Model
             ->update(['payout_id' => null]);
 
         $rows = Commission::query()->acrossBrands()->where('payout_id', $payout->getKey())->get();
+        $total = (int) $rows->sum(fn (Commission $c) => $c->payableCent());
 
-        if ($rows->isEmpty()) {
+        // Nothing left to pay, or less than the brand pays out at all: the
+        // list is dissolved and its rows wait, unlisted, for the next one. A
+        // claw-back on it would otherwise turn it negative, and a negative
+        // list marked "paid" books money that never moved.
+        $minimum = max(0, (int) Brands::runFor($payout->brand_id, fn () => config('affiliates.payouts.minimum_cent', 5000)));
+
+        if ($rows->isEmpty() || $total <= 0 || $total < $minimum) {
+            Commission::query()->acrossBrands()
+                ->where('payout_id', $payout->getKey())
+                ->update(['payout_id' => null]);
+
             $payout->delete();
 
             return;
         }
 
         $payout->forceFill([
-            'amount_cent' => (int) $rows->sum(fn (Commission $c) => $c->payableCent()),
+            'amount_cent' => $total,
             'commission_count' => $rows->count(),
         ])->save();
     }

@@ -41,3 +41,13 @@ First version.
 - Invitations expire (`signup.invite_days`) and bind only to the invited address. Payout details
   in the CP only with `manage affiliate payouts`. The `go` link notes the referral itself, so it
   works behind full static caching.
+
+### Review round 3
+- An open payout list that a refund or cancellation drives to zero, below zero or below the
+  minimum is dissolved; its rows wait for the next list. Only a positive list can be marked paid.
+- "The first n" renewals count paid, unrefunded renewals only; a plan switch earns but is no cycle.
+- Without `manage affiliate payouts` the payout method is locked too; PayPal addresses are masked
+  as `cl•••@•••`.
+- Claw-back rows read "offset" instead of a zero base.
+- The partner screen shows the `go` short link with a note on static caching.
+- Refunded sales and own purchases no longer count as sales in the partner's figures.

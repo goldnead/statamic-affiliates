@@ -9,6 +9,7 @@ use Goldnead\Affiliates\Models\JvContract;
 use Goldnead\Affiliates\Models\Partner;
 use Goldnead\Affiliates\Models\Payout;
 use Goldnead\Affiliates\Models\Rate;
+use Goldnead\Affiliates\Models\Referral;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
@@ -64,6 +65,10 @@ class Ledger
             }
         }
 
+        if ($referral !== null && $partner !== null && $sale->role === Sale::ROLE_FIRST && $this->isSelfReferral($partner, $sale) && ! $referral->self_purchase) {
+            $referral->forceFill(['self_purchase' => true])->save();
+        }
+
         if ($partner !== null && $partner->isActive() && ! $this->isSelfReferral($partner, $sale)) {
             $stack = (bool) Brands::runFor($partner->brand_id, fn () => config('affiliates.jv.stack_with_referral', false));
 
@@ -93,6 +98,14 @@ class Ledger
         }
 
         $share = min(1, max(0, $refundedCent / $paymentAmountCent));
+
+        // A sale refunded in full is no sale in the partner's figures.
+        if ($share >= 1) {
+            Referral::query()->acrossBrands()
+                ->where('payment_id', $paymentId)
+                ->whereNull('refunded_at')
+                ->update(['refunded_at' => now()]);
+        }
 
         $rows = Commission::query()
             ->acrossBrands()
@@ -199,7 +212,7 @@ class Ledger
             return $row ? [$row] : [];
         }
 
-        if ($sale->role === Sale::ROLE_CYCLE) {
+        if ($sale->isRecurring()) {
             $rate = $this->rateFor($sale->product);
             $cycle = $this->nextCycle($partner, $sale);
 
@@ -210,7 +223,9 @@ class Ledger
 
             $percent = $rate['recurring_percent'] ?? $rate['percent'];
             $amount = $this->amount($rate, $partner, $this->net($sale->amountCent), $percent, false);
-            $row = $this->write($partner, $sale, Commission::KIND_RECURRING, null, $sale->product, $this->net($sale->amountCent), $amount, $cycle, null, $this->describe($rate, $partner, $percent, false));
+            // A plan switch earns within the commissioned period, but carries
+            // no cycle number: it is not a renewal and uses up no slot.
+            $row = $this->write($partner, $sale, Commission::KIND_RECURRING, null, $sale->product, $this->net($sale->amountCent), $amount, $sale->role === Sale::ROLE_SWITCH ? null : $cycle, null, $this->describe($rate, $partner, $percent, false));
 
             return $row ? [$row] : [];
         }
@@ -250,7 +265,7 @@ class Ledger
 
     protected function jvCovers(JvContract $contract, Sale $sale): bool
     {
-        if ($sale->role === Sale::ROLE_CYCLE && ! $contract->recurring) {
+        if ($sale->isRecurring() && ! $contract->recurring) {
             return false;
         }
 
@@ -265,7 +280,7 @@ class Ledger
 
     protected function bookJv(Partner $partner, JvContract $contract, Sale $sale): ?Commission
     {
-        if ($sale->role === Sale::ROLE_CYCLE && ! $contract->recurring) {
+        if ($sale->isRecurring() && ! $contract->recurring) {
             return null;
         }
 
@@ -395,6 +410,11 @@ class Ledger
             ->where('partner_id', $partner->getKey())
             ->where('origin_payment_id', $sale->originId())
             ->where('kind', Commission::KIND_RECURRING)
+            // Counted: paid renewals that were not refunded. A plan switch
+            // (no cycle number) and a refunded renewal free no money, so they
+            // use up none of "the first n" either.
+            ->whereNotNull('cycle')
+            ->where('status', '!=', Commission::STATUS_REVERSED)
             ->where('payment_id', '!=', $sale->paymentId)
             ->count();
 

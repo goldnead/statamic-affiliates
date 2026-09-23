@@ -78,7 +78,11 @@ class Payouts
         return $created;
     }
 
-    public function markPaid(Payout $payout): Payout
+    /**
+     * Null when there is nothing to mark: the list was dissolved in the
+     * meantime (all reversed, or a claw-back left it at zero or below).
+     */
+    public function markPaid(Payout $payout): ?Payout
     {
         if ($payout->status === Payout::STATUS_PAID) {
             return $payout;
@@ -90,9 +94,9 @@ class Payouts
 
         $payout = Payout::query()->acrossBrands()->find($payout->getKey());
 
-        if ($payout === null) {
-            // Everything on it was reversed in the meantime.
-            return new Payout;
+        // Only money that actually goes out can be marked as gone out.
+        if ($payout === null || $payout->amount_cent <= 0) {
+            return null;
         }
 
         DB::transaction(function () use ($payout): void {

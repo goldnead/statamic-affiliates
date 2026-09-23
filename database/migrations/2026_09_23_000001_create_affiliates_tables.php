@@ -71,6 +71,10 @@ return new class extends Migration
             // Set when the payment is paid. A referral noted at a checkout
             // nobody finished is not a sale.
             $table->timestamp('paid_at')->nullable()->index();
+            // Refunded in full, or bought by the partner themselves: noted,
+            // and left out of the partner's sales.
+            $table->timestamp('refunded_at')->nullable();
+            $table->boolean('self_purchase')->default(false);
             $table->timestamps();
         });
 

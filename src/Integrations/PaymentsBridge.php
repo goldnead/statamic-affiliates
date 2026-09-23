@@ -160,7 +160,7 @@ class PaymentsBridge
             // belongs to the subscription it changes, so it is a renewal of
             // that subscription's first payment and inherits its referral;
             // origin 0 when that payment cannot be found, which means none.
-            is_array($meta['subscription_change'] ?? null) => [Sale::ROLE_CYCLE, is_numeric($switched) ? self::firstPaymentOf((int) $switched, $payment) : 0],
+            is_array($meta['subscription_change'] ?? null) => [Sale::ROLE_SWITCH, is_numeric($switched) ? self::firstPaymentOf((int) $switched, $payment) : 0],
             default => [Sale::ROLE_FIRST, null],
         };
 

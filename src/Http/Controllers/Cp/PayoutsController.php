@@ -118,7 +118,9 @@ class PayoutsController extends CpController
     {
         Gate::authorize('manage affiliate payouts');
 
-        $payouts->markPaid(Payout::query()->findOrFail($payout));
+        if ($payouts->markPaid(Payout::query()->findOrFail($payout)) === null) {
+            return back()->with('error', __('affiliates::cp.payout_dissolved'));
+        }
 
         return back()->with('success', __('affiliates::cp.payout_marked_paid'));
     }

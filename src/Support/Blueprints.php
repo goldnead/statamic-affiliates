@@ -24,6 +24,17 @@ class Blueprints
             ? self::field('payout_details', ['type' => 'textarea', 'validate' => ['nullable', 'max:500']])
             : self::field('payout_details_masked', ['type' => 'text', 'read_only' => true, 'display' => __('affiliates::cp.field_payout_details'), 'instructions' => __('affiliates::cp.payout_details_hidden')]);
 
+        // Where the money goes is the payout team's call as much as the
+        // account itself: switching PayPal to bank is as good as a new IBAN.
+        $method = $payouts
+            ? self::field('payout_method', [
+                'type' => 'select',
+                'options' => self::options('method', ['bank', 'paypal', 'other']),
+                'clearable' => true,
+                'width' => 50,
+            ])
+            : self::field('payout_method_label', ['type' => 'text', 'read_only' => true, 'display' => __('affiliates::cp.field_payout_method'), 'width' => 50]);
+
         $main = [
             self::field('name', ['type' => 'text', 'validate' => ['required', 'max:191'], 'width' => 50]),
             self::field('email', ['type' => 'text', 'input_type' => 'email', 'validate' => ['required', 'email', 'max:191'], 'width' => 50]),
@@ -52,12 +63,7 @@ class Blueprints
                         self::field('notify', ['type' => 'toggle', 'default' => true]),
                     ]],
                     ['display' => __('affiliates::cp.section_payout'), 'fields' => [
-                        self::field('payout_method', [
-                            'type' => 'select',
-                            'options' => self::options('method', ['bank', 'paypal', 'other']),
-                            'clearable' => true,
-                            'width' => 50,
-                        ]),
+                        $method,
                         $details,
                         self::field('notes', ['type' => 'textarea', 'validate' => ['nullable', 'max:2000']]),
                     ]],
@@ -144,19 +150,32 @@ class Blueprints
         $values = self::partnerFields($partner);
 
         if (! $payouts) {
-            unset($values['payout_details']);
+            unset($values['payout_details'], $values['payout_method']);
             $values['payout_details_masked'] = self::mask($partner->payout_details);
+            $values['payout_method_label'] = $partner->payout_method ? __('affiliates::cp.method_'.$partner->payout_method) : null;
         }
 
         return $values;
     }
 
-    /** "•••• 2051": that something is on file, and which, without the rest. */
+    /**
+     * That something is on file, and which, without the rest: "•••• 2051"
+     * for an account number, "cl•••@•••" for a PayPal address. The domain is
+     * hidden too; "@gmail.com" narrows a person down more than it helps.
+     */
     public static function mask(?string $details): ?string
     {
         $plain = preg_replace('/\s+/', '', (string) $details) ?? '';
 
-        return $plain === '' ? null : '•••• '.mb_substr($plain, -4);
+        if ($plain === '') {
+            return null;
+        }
+
+        if (preg_match('/^([^@]+)@/', $plain, $m) === 1) {
+            return mb_substr($m[1], 0, 2).'•••@•••';
+        }
+
+        return '•••• '.mb_substr($plain, -4);
     }
 
     /** @return array<string, mixed> */

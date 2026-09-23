@@ -171,6 +171,17 @@ class Affiliates
         return $url.$separator.rawurlencode($parameter).'='.rawurlencode($partner->code);
     }
 
+    /**
+     * The short link `/!/affiliates/go/{code}`: notes the referral on a route
+     * PHP always handles, so it also works behind full static caching.
+     */
+    public function goLink(Partner $partner, ?string $path = null): string
+    {
+        $link = url('/!/affiliates/go/'.rawurlencode($partner->code));
+
+        return $path === null || trim($path) === '' ? $link : $link.'?to='.rawurlencode($path);
+    }
+
     public function inviteUrl(Partner $partner): string
     {
         return url('/!/affiliates/invite/'.$partner->invite_token);
@@ -189,7 +200,9 @@ class Affiliates
         // paid leaves a referral without `paid_at`; it is not a sale.
         $paid = Referral::query()->acrossBrands()
             ->where('partner_id', $partner->getKey())
-            ->whereNotNull('paid_at');
+            ->whereNotNull('paid_at')
+            ->whereNull('refunded_at')
+            ->where('self_purchase', false);
 
         $sales = (clone $paid)->count();
 

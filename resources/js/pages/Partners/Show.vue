@@ -101,9 +101,13 @@ function formatDate(value) {
         : dateFormatter.format(value, 'date');
 }
 
-function copyLink() {
-    navigator.clipboard?.writeText(props.partner.link);
+function copy(text) {
+    navigator.clipboard?.writeText(text);
     Statamic.$toast.success(__('affiliates::cp.link_copied'));
+}
+
+function copyLink() {
+    copy(props.partner.link);
 }
 </script>
 
@@ -261,6 +265,12 @@ function copyLink() {
                     <Button icon="link" :text="__('affiliates::cp.copy')" @click="copyLink" />
                 </div>
                 <Description class="mt-2" :text="__('affiliates::cp.tracking_link_help')" />
+
+                <div class="flex gap-2 items-center mt-4">
+                    <Input :model-value="partner.go_link" read-only class="font-mono" :aria-label="__('affiliates::cp.go_link')" />
+                    <Button icon="link" :text="__('affiliates::cp.copy')" @click="copy(partner.go_link)" />
+                </div>
+                <Description class="mt-2" :text="__('affiliates::cp.go_link_help')" />
             </Card>
         </Panel>
 

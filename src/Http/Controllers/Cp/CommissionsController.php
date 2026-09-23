@@ -74,9 +74,12 @@ class CommissionsController extends CpController
             'kind_label' => __('affiliates::cp.kind_'.$c->kind).($c->cycle ? ' #'.$c->cycle : ''),
             'product' => $c->product,
             'payment' => '#'.$c->payment_id,
-            'base' => Money::format($c->base_cent, $c->currency),
+            // A claw-back has no base of its own; it is offset against the
+            // next payout, and says so instead of showing "0,00 €".
+            'base' => $c->kind === Commission::KIND_CLAWBACK ? '—' : Money::format($c->base_cent, $c->currency),
             'amount' => Money::format($c->payableCent(), $c->currency),
             'rate' => match (true) {
+                $c->kind === Commission::KIND_CLAWBACK => __('affiliates::cp.clawback_offset'),
                 $c->rate === 'fixed' => __('affiliates::cp.type_fixed'),
                 is_numeric($c->rate) => Percent::format($c->rate),
                 default => (string) $c->rate,

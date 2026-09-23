@@ -164,6 +164,7 @@ class PartnersController extends CpController
                 'status' => $model->status,
                 'status_label' => __('affiliates::cp.partner_'.$model->status),
                 'link' => $model->isActive() ? $this->affiliates->link($model) : null,
+                'go_link' => $this->affiliates->goLink($model),
                 'coupon_codes' => $model->couponCodes(),
                 'unknown_coupons' => $this->unknownCoupons($model->couponCodes()),
                 'commission_percent' => $model->commission_percent !== null ? Percent::format($model->commission_percent) : null,
@@ -232,7 +233,7 @@ class PartnersController extends CpController
         // Without the payout permission the form never showed the details,
         // so what it sends back says nothing about them. Keep what is stored.
         if (! $this->seesPayouts()) {
-            unset($attributes['payout_details']);
+            unset($attributes['payout_details'], $attributes['payout_method']);
         }
 
         $model->forceFill([

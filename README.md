@@ -73,7 +73,9 @@ URLs carrying `ref=`. The half-measure strategy runs PHP on every request and ne
 Per product under **Affiliates → Commission Rates**, otherwise the default from the settings:
 
 - percent of the net amount, or a fixed amount once per sale;
-- renewals: none, the first *n*, or all, with their own percentage if wanted;
+- renewals: none, the first *n*, or all, with their own percentage if wanted. "The first *n*"
+  counts paid renewals that were not refunded; a plan switch earns within that period but does
+  not use up a renewal;
 - as an order bump and as an upsell, each switched on per product, bumps with their own percentage;
 - a partner can have an own percentage. By default it replaces only the main rate of a sale (and
   of an upsell); bump and renewal rates stay the product's. `commissions.partner_rate: all` makes
@@ -110,7 +112,10 @@ payout takes back exactly what went out. CSV amounts use a decimal comma in Germ
 Payout details (IBAN, PayPal address) are stored encrypted and shown in the Control Panel only to
 users with `manage affiliate payouts`; others see a masked line.
 
-A partner's sales are paid first payments only; the conversion rate counts link sales per click
+A list that a refund or cancellation drives to zero, below zero or below the minimum is dissolved,
+and its commissions wait for the next list; only a positive list can be marked paid.
+
+A partner's sales are paid first payments only, without refunded sales and own purchases; the conversion rate counts link sales per click
 and never exceeds 100 %. A coupon code belongs to one partner per brand.
 
 ## Usage: the partner area
