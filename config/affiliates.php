@@ -208,4 +208,21 @@ return [
         'enabled' => true,
     ],
 
+    /*
+    |--------------------------------------------------------------------------
+    | Webhook Manager
+    |--------------------------------------------------------------------------
+    |
+    | Where goldnead/statamic-webhook-manager is installed, the four partner
+    | moments (commission earned and reversed, partner applied and approved)
+    | show up there as triggers. On by default: offering a trigger sends
+    | nothing, data leaves only through an outbound webhook somebody creates.
+    | Payout details never travel. Per-trigger bodies are in the README.
+    |
+    */
+
+    'webhook_manager' => [
+        'enabled' => env('AFFILIATES_WEBHOOK_MANAGER', true),
+    ],
+
 ];

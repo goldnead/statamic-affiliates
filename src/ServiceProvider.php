@@ -4,6 +4,7 @@ namespace Goldnead\Affiliates;
 
 use Goldnead\Affiliates\Http\Middleware\CaptureReferral;
 use Goldnead\Affiliates\Integrations\PaymentsBridge;
+use Goldnead\Affiliates\Integrations\WebhookManager\WebhookManagerBridge;
 use Goldnead\Affiliates\Support\Attribution;
 use Goldnead\Affiliates\Support\Ledger;
 use Goldnead\Affiliates\Support\Payouts;
@@ -11,9 +12,11 @@ use Goldnead\Affiliates\Support\Settings;
 use Goldnead\Affiliates\Support\Tracking;
 use Goldnead\BrandContext\Settings\SettingsRegistry;
 use Illuminate\Support\Facades\Event;
+use Illuminate\Support\Facades\Log;
 use Statamic\Facades\CP\Nav;
 use Statamic\Facades\Permission;
 use Statamic\Providers\AddonServiceProvider;
+use Throwable;
 
 class ServiceProvider extends AddonServiceProvider
 {
@@ -52,6 +55,10 @@ class ServiceProvider extends AddonServiceProvider
         $this->app->singleton(Ledger::class);
         $this->app->singleton(Payouts::class);
 
+        // A singleton, so its "already registered" guard holds across the
+        // first attempt and the retry in registerWebhookManagerBridge().
+        $this->app->singleton(WebhookManagerBridge::class);
+
         // On the resolving translator rather than in boot: nav and permission
         // labels are built before bootAddon() runs.
         $langPath = __DIR__.'/../resources/lang';
@@ -60,6 +67,41 @@ class ServiceProvider extends AddonServiceProvider
         if ($this->app->resolved('translator')) {
             $this->app['translator']->addNamespace('affiliates', $langPath);
         }
+    }
+
+    public function boot()
+    {
+        parent::boot();
+
+        // From boot(), not bootAddon(): bootAddon() runs inside an
+        // app->booted() callback, where a nested booted() fires at once, still
+        // before a sibling's bootAddon(). Queued here, it runs after all of them.
+        $this->registerWebhookManagerBridge();
+    }
+
+    /**
+     * Offer the partner moments to the webhook manager, if it is there.
+     *
+     * Twice, the second time at the very end of the booted queue: the first
+     * attempt can come before the manager bound its service. The bridge bails
+     * without marking itself booted then, and ignores every later attempt.
+     */
+    protected function registerWebhookManagerBridge(): void
+    {
+        $boot = function (): void {
+            try {
+                $this->app->make(WebhookManagerBridge::class)->boot($this->app->make('events'));
+            } catch (Throwable $e) {
+                Log::warning('statamic-affiliates: the webhook manager triggers could not be registered.', [
+                    'exception' => $e->getMessage(),
+                ]);
+            }
+        };
+
+        $this->app->booted(function () use ($boot): void {
+            $boot();
+            $this->app->booted($boot);
+        });
     }
 
     public function bootAddon(): void

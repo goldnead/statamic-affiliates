@@ -31,6 +31,7 @@
     "require-dev": {
         "goldnead/statamic-consent": "^1.8",
         "goldnead/statamic-payments": "^1.24",
+        "goldnead/statamic-webhook-manager": "^2.9",
         "larastan/larastan": "^3.0",
         "laravel/pint": "^1.18",
         "orchestra/testbench": "^10.0|^11.0",
@@ -40,7 +41,8 @@
     "suggest": {
         "goldnead/statamic-payments": "Where commissions come from: PaymentPaid books them, PaymentRefunded and PaymentChargedBack reverse them (1.24 or later). Without it nothing is ever attributed.",
         "goldnead/statamic-offers": "Coupons that belong to a partner: a redeemed code counts as a referral even without a cookie.",
-        "goldnead/statamic-consent": "Asks the visitor before the referral cookie is set. Without it, or another consent answer, referrals only last for the visit."
+        "goldnead/statamic-consent": "Asks the visitor before the referral cookie is set. Without it, or another consent answer, referrals only last for the visit.",
+        "goldnead/statamic-webhook-manager": "Offer commissions and partner applications as triggers for outbound webhooks; picked up automatically where it is installed. Payout details never travel."
     },
     "autoload": {
         "psr-4": {

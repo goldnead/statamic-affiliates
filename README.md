@@ -150,6 +150,44 @@ The commission mail never names the buyer.
 `CommissionEarned`, `CommissionReversed`, `PartnerApplied`, `PartnerApproved`. The payments side is
 listened to only when statamic-payments is installed; no listener ever throws into its fulfilment.
 
+### As webhooks, through the Webhook Manager
+
+With `goldnead/statamic-webhook-manager` installed, the four events appear there as triggers
+("Affiliates: commission earned" / "Partner: Provision verdient"), under the handles the
+automations addon uses. Nothing to switch on: offering a trigger sends nothing, data leaves only
+through an outbound webhook somebody creates. `AFFILIATES_WEBHOOK_MANAGER=false`
+(`affiliates.webhook_manager.enabled`) hides them. Each is delivered in the brand of the row, since a
+commission is booked in a payment webhook where no brand is current.
+
+```json
+{
+  "event": "affiliates.commission_earned",
+  "occurred_at": "2026-09-24T10:12:03+02:00",
+  "brand": { "id": 2, "handle": "nordlicht" },
+  "subject_type": "commission",
+  "subject_id": 9,
+  "commission": { "...": "see below" },
+  "partner": { "...": "see below" }
+}
+```
+
+| Trigger | Besides the common keys |
+|---|---|
+| `affiliates.commission_earned` | `commission`, `partner` |
+| `affiliates.commission_reversed` | `commission` (with `reason`, `reversed_cent`), `partner` |
+| `affiliates.partner_applied` | `partner` plus `message` (what the applicant wrote) |
+| `affiliates.partner_approved` | `partner` |
+
+**`commission`**: `id`, `kind`, `status`, `product`, `cycle`, `base_cent`, `amount_cent`,
+`reversed_cent`, `currency`, `rate`, `payment_id`, `reverses_id`, `reason`, `sold_at`,
+`available_at`, `approved_at`, `reversed_at`, `created_at`.
+
+**`partner`**: `id`, `name`, `email`, `code`, `status`, `commission_percent`, `website`,
+`created_at`, `approved_at`.
+
+**Never in a body:** payout method and details (IBAN, PayPal), the invitation token, the operator's
+notes, the linked user account, the buyer. Money is `*_cent` next to `currency`, times are ISO 8601.
+
 ## Control Panel
 
 Partners, a partner's detail (link, figures, commissions, payouts, contracts), Commissions,
