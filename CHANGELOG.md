@@ -1,6 +1,14 @@
 # Changelog
 
-## Unreleased (0.2.0)
+## 0.2.0 — 2026-09-24
+
+### Upgrading
+
+- No migration, no new permission.
+- **With statamic-webhook-manager 2.10 the commission and partner moments appear there as
+  triggers.** Nothing to do if you want that. To switch it off, set
+  `affiliates.webhook_manager.enabled` to `false` (env `AFFILIATES_WEBHOOK_MANAGER`). Without the
+  webhook manager nothing changes.
 
 ### Added
 
