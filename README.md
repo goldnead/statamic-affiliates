@@ -157,11 +157,21 @@ With `goldnead/statamic-webhook-manager` installed, the four events appear there
 automations addon uses. Nothing to switch on: offering a trigger sends nothing, data leaves only
 through an outbound webhook somebody creates. `AFFILIATES_WEBHOOK_MANAGER=false`
 (`affiliates.webhook_manager.enabled`) hides them. Each is delivered in the brand of the row, since a
-commission is booked in a payment webhook where no brand is current.
+commission is booked in a payment webhook where no brand is current. A row naming a brand that
+cannot be set is **not delivered** and logged, rather than sent through the current brand's hooks.
+A moment inside a database transaction (the ledger reverses in one) goes out after the commit,
+never after a rollback.
+
+**Duplicates and order.** `event_id` is the same every time the same moment is told again, so a
+receiver can drop the repeat; a further partial reversal is a new moment. `occurred_at` is the
+row's own time (`created_at`, `reversed_at`, `approved_at`), not the time of sending. **Order is
+not guaranteed:** `affiliates.commission_reversed` can reach a receiver before the
+`payments.refunded` that caused it. Sort by `occurred_at`, deduplicate by `event_id`.
 
 ```json
 {
   "event": "affiliates.commission_earned",
+  "event_id": "3c7a1e9f0b4d2a8c6e1f5b9d3a7c0e4f8b2d6a1c",
   "occurred_at": "2026-09-24T10:12:03+02:00",
   "brand": { "id": 2, "handle": "nordlicht" },
   "subject_type": "commission",

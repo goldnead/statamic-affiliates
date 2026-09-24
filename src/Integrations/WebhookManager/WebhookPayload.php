@@ -63,11 +63,55 @@ final class WebhookPayload
 
         return array_merge([
             'event' => self::PREFIX.$moment,
-            'occurred_at' => self::date($at ?? now()),
+            'event_id' => self::eventId($moment, $event),
+            'occurred_at' => self::date($at ?? self::occurredAt($event)),
             'brand' => self::brand(self::brandIdOf($event)),
             'subject_type' => $type,
             'subject_id' => $id,
         ], self::body($event));
+    }
+
+    /**
+     * The same id for the same moment, however often it is dispatched, so a
+     * receiver can drop the repeat. `sha1(handle|part|part…)`, the recipe of
+     * every addon of the suite; the parts are the row and its own time, never
+     * the clock at dispatch.
+     */
+    public static function eventId(string $moment, object $event): string
+    {
+        return sha1(implode('|', array_map(
+            fn ($part) => $part instanceof \DateTimeInterface ? $part->format(\DATE_ATOM) : (string) $part,
+            [self::PREFIX.$moment, ...self::momentParts($event)],
+        )));
+    }
+
+    /** When the moment happened: the first date among its parts. */
+    public static function occurredAt(object $event): \DateTimeInterface
+    {
+        foreach (self::momentParts($event) as $part) {
+            if ($part instanceof \DateTimeInterface) {
+                return $part;
+            }
+        }
+
+        return now();
+    }
+
+    /**
+     * A commission is booked once; a reversal can come in steps, so the
+     * amount taken back so far is part of it.
+     *
+     * @return list<mixed>
+     */
+    private static function momentParts(object $event): array
+    {
+        return match (true) {
+            $event instanceof CommissionReversed => [$event->commission->reversed_at ?? $event->commission->updated_at ?? '', 'commission:'.$event->commission->getKey(), 'reversed:'.(int) $event->commission->reversed_cent],
+            $event instanceof CommissionEarned => [$event->commission->created_at ?? '', 'commission:'.$event->commission->getKey()],
+            $event instanceof PartnerApplied => [$event->partner->created_at ?? '', 'partner:'.$event->partner->getKey()],
+            $event instanceof PartnerApproved => [$event->partner->approved_at ?? '', 'partner:'.$event->partner->getKey()],
+            default => [$event::class],
+        };
     }
 
     /**
@@ -146,39 +190,43 @@ final class WebhookPayload
     }
 
     /**
-     * Run the dispatch as the row's brand, restoring whatever was current. A
-     * brand that cannot be set is logged and the dispatch runs without it.
+     * Run the hand-over as the row's brand, or not at all.
      *
-     * @template T
+     * A row naming a brand that cannot be set (deleted, a bad backfill) is
+     * logged and not delivered: the only brand left is whatever is current,
+     * and its hooks belong to another tenant.
      *
-     * @param  Closure(): T  $callback
-     * @return T
+     * @param  Closure(): void  $callback
      */
-    public static function runFor(?int $brand, Closure $callback): mixed
+    public static function runForBrand(?int $brand, Closure $callback, string $handle): bool
     {
         if (! $brand || ! app()->bound('brand-context')) {
-            return $callback();
+            $callback();
+
+            return true;
         }
 
         $ran = false;
 
         try {
-            return app('brand-context')->runFor($brand, function () use ($callback, &$ran) {
+            app('brand-context')->runFor($brand, function () use ($callback, &$ran): void {
                 $ran = true;
-
-                return $callback();
+                $callback();
             });
+
+            return true;
         } catch (Throwable $e) {
             if ($ran) {
                 throw $e;
             }
 
-            Log::warning('statamic-affiliates: the brand of this row could not be set for the webhook; it ran without it.', [
+            Log::warning('statamic-affiliates: the row names a brand that cannot be set; the webhook was not delivered rather than sent through another brand\'s hooks.', [
+                'trigger' => $handle,
                 'brand_id' => $brand,
                 'exception' => $e->getMessage(),
             ]);
 
-            return $callback();
+            return false;
         }
     }
 

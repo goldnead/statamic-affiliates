@@ -7,6 +7,8 @@
  */
 
 use Goldnead\Affiliates\Affiliates;
+use Goldnead\Affiliates\Events\CommissionEarned;
+use Goldnead\Affiliates\Events\CommissionReversed;
 use Goldnead\Affiliates\Events\PartnerApproved;
 use Goldnead\Affiliates\Integrations\WebhookManager\AffiliatesTrigger;
 use Goldnead\Affiliates\Integrations\WebhookManager\WebhookManagerBridge;
@@ -89,7 +91,8 @@ it('tells a receiver about an earned commission without the payout details', fun
 
     expect($detected->trigger->sourceType)->toBe('affiliates')
         ->and($detected->trigger->sourceReference)->toBe((string) $commission->id)
-        ->and(array_keys($body))->toBe(['event', 'occurred_at', 'brand', 'subject_type', 'subject_id', 'commission', 'partner'])
+        ->and(array_keys($body))->toBe(['event', 'event_id', 'occurred_at', 'brand', 'subject_type', 'subject_id', 'commission', 'partner'])
+        ->and($body['occurred_at'])->toBe($commission->created_at->format(DATE_ATOM))
         ->and([$body['subject_type'], $body['subject_id']])->toBe(['commission', $commission->id])
         ->and($body['commission']['amount_cent'])->toBe(3000)
         ->and($body['commission']['base_cent'])->toBe(10000)
@@ -162,6 +165,79 @@ it('delivers through the hook of the rows brand when no brand is current', funct
     expect($body['brand'])->toBe(['id' => $zweite, 'handle' => 'zweite'])
         ->and($hooks)->toBe(['zweite-hook'])
         ->and(app('brand-context')->hasCurrent())->toBeFalse();
+});
+
+it('does not deliver a row naming a brand that cannot be set through the current brand', function () {
+    config(['brand-context.multi_brand' => true]);
+    Queue::fake();
+
+    $default = (int) DB::table('brands')->where('is_default', true)->value('id');
+    app('brand-context')->runFor($default, fn () => wmHook('affiliates.partner_approved', 'current-hook'));
+
+    $heard = [];
+    Event::listen(TriggerDetected::class, function (TriggerDetected $d) use (&$heard) {
+        $heard[] = $d->trigger->triggerHandle;
+    });
+
+    $partner = $this->makePartner(['brand_id' => 99]);
+    app('brand-context')->runFor($default, fn () => PartnerApproved::dispatch($partner));
+
+    expect($heard)->toBe([])
+        ->and(DB::table('webhook_deliveries')->count())->toBe(0);
+});
+
+it('hands a moment over after the commit and never after a rollback', function () {
+    $heard = [];
+    Event::listen(TriggerDetected::class, function (TriggerDetected $d) use (&$heard) {
+        $heard[] = $d->trigger->triggerHandle;
+    });
+
+    $partner = $this->makePartner();
+
+    try {
+        DB::transaction(function () use ($partner) {
+            PartnerApproved::dispatch($partner);
+
+            throw new RuntimeException('rolled back');
+        });
+    } catch (RuntimeException) {
+    }
+
+    expect($heard)->toBe([]);
+
+    DB::transaction(function () use ($partner, &$heard) {
+        PartnerApproved::dispatch($partner);
+
+        expect($heard)->toBe([]);
+    });
+
+    expect($heard)->toBe(['affiliates.partner_approved']);
+});
+
+it('gives the same moment told twice the same event_id, and a further reversal a new one', function () {
+    Event::fake([TriggerDetected::class]);
+
+    [, $payment] = wmReferredAndPaid($this);
+    $commission = Commission::query()->sole();
+    CommissionEarned::dispatch($commission->fresh());
+
+    $payment->forceFill(['refunded_cent' => 2500])->save();
+    PaymentRefunded::dispatch($payment->fresh(), 2500, false);
+    CommissionReversed::dispatch($commission->fresh());
+    $payment->forceFill(['refunded_cent' => 10000])->save();
+    PaymentRefunded::dispatch($payment->fresh(), 7500, true);
+
+    $ids = collect(Event::dispatched(TriggerDetected::class))
+        ->map(fn ($call) => [$call[0]->trigger->triggerHandle, $call[0]->trigger->payload['event_id']]);
+    $earned = $ids->where(0, 'affiliates.commission_earned')->pluck(1)->values()->all();
+    $reversed = $ids->where(0, 'affiliates.commission_reversed')->pluck(1)->values()->all();
+
+    expect($earned)->toHaveCount(2)
+        ->and($earned[0])->toBe($earned[1])
+        ->and($earned[0])->toMatch('/^[0-9a-f]{40}$/')
+        ->and($reversed)->toHaveCount(3)
+        ->and($reversed[0])->toBe($reversed[1])
+        ->and($reversed[2])->not->toBe($reversed[0]);
 });
 
 it('never lets a failing manager cost the commission', function () {

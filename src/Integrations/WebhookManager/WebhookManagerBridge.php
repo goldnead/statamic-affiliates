@@ -3,6 +3,7 @@
 namespace Goldnead\Affiliates\Integrations\WebhookManager;
 
 use Illuminate\Contracts\Events\Dispatcher;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Throwable;
 
@@ -81,8 +82,28 @@ class WebhookManagerBridge
      */
     protected function dispatch(string $moment, object $event): void
     {
+        $handle = WebhookPayload::PREFIX.$moment;
+
+        // After the commit, never inside it. The ledger reverses commissions
+        // inside a transaction: handed over there, a queued delivery could run
+        // before the rows exist, a sync one would hold the write lock for an
+        // HTTP round trip, and a rollback would leave the receiver told about a
+        // reversal that never happened. Outside a transaction this runs at
+        // once; after a rollback never.
         try {
-            $trigger = app('webhook-manager')->triggers()->get(WebhookPayload::PREFIX.$moment);
+            DB::afterCommit(fn () => $this->handOver($handle, $event));
+        } catch (Throwable $e) {
+            Log::warning('statamic-affiliates: a partner moment could not be handed to the webhook manager.', [
+                'trigger' => $handle,
+                'exception' => $e->getMessage(),
+            ]);
+        }
+    }
+
+    protected function handOver(string $handle, object $event): void
+    {
+        try {
+            $trigger = app('webhook-manager')->triggers()->get($handle);
 
             if ($trigger === null) {
                 return;
@@ -90,13 +111,14 @@ class WebhookManagerBridge
 
             $detected = self::DETECTED;
 
-            WebhookPayload::runFor(
+            WebhookPayload::runForBrand(
                 WebhookPayload::brandIdOf($event),
                 fn () => event(new $detected($trigger->build($event))),
+                $handle,
             );
         } catch (Throwable $e) {
             Log::warning('statamic-affiliates: a partner moment could not be handed to the webhook manager.', [
-                'trigger' => WebhookPayload::PREFIX.$moment,
+                'trigger' => $handle,
                 'exception' => $e->getMessage(),
             ]);
         }

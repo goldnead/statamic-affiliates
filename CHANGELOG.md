@@ -11,6 +11,15 @@
   details, no invitation token, no notes. Every body carries `event`, `occurred_at`, `brand`
   (`id`, `handle`), `subject_type` and `subject_id`. Delivered in the brand of the row. List per
   trigger in the README.
+- Every body carries `event_id` (`sha1` of handle, row and its own time; for a reversal also the
+  amount taken back so far), the same when the same moment is told twice; `occurred_at` and the
+  manager's event time are the row's own time, not the time of sending.
+- Handed over after the surrounding database transaction commits, never after a rollback (the
+  ledger reverses commissions inside one).
+- A row naming a brand that cannot be set is not delivered at all (logged), instead of going out
+  through the current brand's hooks.
+- README: order between triggers is not guaranteed (`affiliates.commission_reversed` can arrive
+  before `payments.refunded`); sort by `occurred_at`, deduplicate by `event_id`.
 - Config `webhook_manager.enabled` (`AFFILIATES_WEBHOOK_MANAGER`, default on).
 - The coupling is optional: composer `suggest`, the manager's classes are checked by name before
   anything that implements its interface is loaded, and registration retries at the end of the
