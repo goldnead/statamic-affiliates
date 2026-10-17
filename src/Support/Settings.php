@@ -2,6 +2,7 @@
 
 namespace Goldnead\Affiliates\Support;
 
+use Goldnead\Affiliates\ServiceProvider;
 use Goldnead\BrandContext\Contracts\DescribesSettingsScreen;
 use Goldnead\BrandContext\Contracts\ProvidesSettings;
 
@@ -94,6 +95,20 @@ class Settings implements DescribesSettingsScreen, ProvidesSettings
                 ],
             ],
         ];
+    }
+
+    /**
+     * Unter welchem Eintrag der eigenen CP-Navigation der Unterpunkt "Settings"
+     * hängt: [Sektion, Name], exakt wie in Nav::extend. Optional, gelesen von
+     * der Einstellungs-Schicht in statamic-brand-context (ab 1.16).
+     *
+     * @return array{0: string, 1: string}
+     */
+    public static function settingsNavParent(): array
+    {
+        $suiteNav = ServiceProvider::SUITE_NAV;
+
+        return [class_exists($suiteNav) ? $suiteNav::section() : 'Tools', __('affiliates::cp.nav')];
     }
 
     /**
