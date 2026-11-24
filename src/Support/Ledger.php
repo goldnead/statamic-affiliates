@@ -150,17 +150,27 @@ class Ledger
         }
     }
 
-    /** Cancel one commission by hand, from the Control Panel. */
-    public function cancel(Commission $commission, string $reason = 'manual'): void
+    /**
+     * Cancel one commission by hand, from the Control Panel.
+     *
+     * @return bool false when nothing was cancelled: a claw-back row is the
+     *              counter-entry of a paid commission and is not cancelled itself,
+     *              and a reversed one is already gone.
+     */
+    public function cancel(Commission $commission, string $reason = 'manual'): bool
     {
+        if ($commission->kind === Commission::KIND_CLAWBACK) {
+            return false;
+        }
+
         if ($commission->status === Commission::STATUS_PAID) {
             $this->clawBack($commission, $commission->amount_cent, $reason);
 
-            return;
+            return true;
         }
 
         if ($commission->status === Commission::STATUS_REVERSED) {
-            return;
+            return false;
         }
 
         $payoutId = $commission->payout_id;
@@ -176,6 +186,8 @@ class Ledger
         Payout::refreshTotals($payoutId);
 
         CommissionReversed::dispatch($commission);
+
+        return true;
     }
 
     /**

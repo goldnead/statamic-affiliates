@@ -209,6 +209,7 @@ return [
     'cancel_commission' => 'Stornieren',
     'cancel_commission_confirm' => 'Die Provision wird storniert und nicht ausgezahlt.',
     'commission_cancelled' => 'Provision storniert',
+    'commission_not_cancelled' => 'Nichts storniert: eine Rückbuchung oder bereits stornierte Provision lässt sich nicht stornieren',
 
     'build_payouts' => 'Auszahlungsliste erstellen',
     'export_csv' => 'Als CSV',

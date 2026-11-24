@@ -53,7 +53,10 @@ class CommissionsController extends CpController
         Gate::authorize('manage affiliate payouts');
 
         $model = Commission::query()->findOrFail($commission);
-        $ledger->cancel($model, 'manual');
+
+        if (! $ledger->cancel($model, 'manual')) {
+            return back()->with('error', __('affiliates::cp.commission_not_cancelled'));
+        }
 
         return back()->with('success', __('affiliates::cp.commission_cancelled'));
     }
