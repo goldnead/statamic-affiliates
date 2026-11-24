@@ -42,6 +42,13 @@ class Book extends Command
 
         if ($this->option('reverse')) {
             $given = $chargedBack ? $amount : $refunded;
+
+            if ($given <= 0) {
+                $this->error('The payment has no refund or chargeback recorded; nothing to reverse.');
+
+                return self::FAILURE;
+            }
+
             $ledger->reverse((int) $payment->getKey(), $amount, $given, $chargedBack ? 'chargeback' : 'refund');
 
             $this->info('Commissions reversed for '.$given.' of '.$amount.' cent.');
@@ -58,6 +65,12 @@ class Book extends Command
         }
 
         $booked = $ledger->book(PaymentsBridge::sale($payment));
+
+        // A part-refunded payment is booked in full first, then the refunded
+        // share is taken back, so the ledger matches the payment.
+        if ($refunded > 0) {
+            $ledger->reverse((int) $payment->getKey(), $amount, $refunded, 'refund');
+        }
 
         $this->info(count($booked).' commission(s) booked.');
 

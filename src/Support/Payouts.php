@@ -102,7 +102,7 @@ class Payouts
             Commission::query()->where('payout_id', $payout->getKey())->update(['payout_id' => null]);
             $payout->delete();
 
-            Log::warning('statamic-affiliates: payout skipped, another run claimed the commissions first.', [
+            Log::warning('statamic-affiliates: payout skipped, the commissions could not all be claimed (another run or a cancel got there first).', [
                 'partner_id' => $first->partner_id,
                 'expected' => $rows->count(),
                 'claimed' => $claimed,
