@@ -142,6 +142,37 @@ it('hands back what was claimed when only part of the commissions were still fre
         ->and(Commission::query()->whereNotNull('payout_id')->pluck('id')->all())->toBe([$taken]);
 });
 
+it('prices the payout on the commissions as claimed, not as read before a partial refund', function () {
+    silentEarn($this, $this->makePartner());
+    expect(Commission::query()->sole()->payableCent())->toBe(3000);
+
+    // The race: between reading the commissions and claiming them, a partial
+    // refund raises `reversed_cent`. The row stays approved, so the claim
+    // still takes it; the payout must carry what it is worth now.
+    Payout::creating(function (): void {
+        DB::table('affiliate_commissions')->update(['reversed_cent' => 1000]);
+    });
+
+    $created = app(Payouts::class)->build();
+
+    expect($created)->toHaveCount(1)
+        ->and($created->sole()->amount_cent)->toBe(2000)
+        ->and(Payout::query()->acrossBrands()->sole()->amount_cent)->toBe(2000);
+});
+
+it('drops the payout when a partial refund leaves it below the minimum', function () {
+    config()->set('affiliates.payouts.minimum_cent', 2500);
+    silentEarn($this, $this->makePartner());
+
+    Payout::creating(function (): void {
+        DB::table('affiliate_commissions')->update(['reversed_cent' => 1000]);
+    });
+
+    expect(app(Payouts::class)->build())->toHaveCount(0)
+        ->and(Payout::query()->acrossBrands()->count())->toBe(0)
+        ->and(Commission::query()->whereNotNull('payout_id')->count())->toBe(0);
+});
+
 it('does not report success when --reverse has nothing to reverse', function () {
     $payment = silentEarn($this, $this->makePartner());
 
