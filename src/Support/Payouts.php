@@ -94,7 +94,14 @@ class Payouts
                 ->update(['payout_id' => $payout->getKey(), 'updated_at' => Carbon::now()]);
 
             if ($claimed === $rows->count()) {
-                return $payout;
+                // The amount was summed from rows read before the claim. A
+                // partial refund in between raises `reversed_cent` but leaves
+                // the row approved, so the claim still took it. Sum again from
+                // what is claimed now: the payout is corrected, or dissolved
+                // when nothing (or less than the minimum) is left.
+                Payout::refreshTotals($payout->getKey());
+
+                return Payout::query()->acrossBrands()->find($payout->getKey());
             }
 
             // Not all of them were ours: give back what was claimed and drop
