@@ -1,12 +1,17 @@
 <?php
 
+use Goldnead\Affiliates\Affiliates;
 use Goldnead\Affiliates\Integrations\PaymentsBridge;
 use Goldnead\Affiliates\Models\Commission;
+use Goldnead\Affiliates\Models\Partner;
 use Goldnead\Affiliates\Models\Payout;
 use Goldnead\Affiliates\Models\Referral;
 use Goldnead\Affiliates\Support\Ledger;
+use Goldnead\Affiliates\Support\Mailer;
 use Goldnead\Affiliates\Support\Payouts;
+use Goldnead\Affiliates\Support\Tracking;
 use Goldnead\StatamicPayments\Events\PaymentChargedBack;
+use Illuminate\Mail\Mailable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 
@@ -182,4 +187,95 @@ it('reverses the refunded share right after booking a partly refunded payment', 
     $this->artisan('affiliates:book', ['payment' => $payment->id])->assertSuccessful();
 
     expect(Commission::query()->sole()->payableCent())->toBe(2250);
+});
+
+function silentFailingMailer(): void
+{
+    app()->instance(Mailer::class, new class extends Mailer
+    {
+        public function send(Partner $partner, Mailable $mailable): bool
+        {
+            return false;
+        }
+    });
+}
+
+it('tells the Control Panel when the invitation mail did not go out, and logs it without the address', function () {
+    silentFailingMailer();
+    Log::spy();
+    $partner = $this->makePartner(['status' => Partner::STATUS_PENDING]);
+
+    $this->actingAs($this->superUser())
+        ->from('/cp')
+        ->post(cp_route('affiliates.partners.invite', $partner->id))
+        ->assertSessionHas('error')
+        ->assertSessionMissing('success');
+
+    Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context) => $context['partner_id'] === $partner->id
+        && ! str_contains(json_encode($context), 'clara@example.com'));
+});
+
+it('tells the Control Panel when the approval mail did not go out', function () {
+    silentFailingMailer();
+    $partner = $this->makePartner(['status' => Partner::STATUS_PENDING]);
+
+    $this->actingAs($this->superUser())
+        ->from('/cp')
+        ->post(cp_route('affiliates.partners.status', $partner->id), ['status' => Partner::STATUS_ACTIVE])
+        ->assertSessionHas('error')
+        ->assertSessionMissing('success');
+});
+
+it('logs a partner whose payout is held back below the minimum, with the amount and the reason', function () {
+    config()->set('affiliates.commissions.hold_days', 0);
+    config()->set('affiliates.payouts.minimum_cent', 5000);
+    $partner = $this->makePartner();
+    silentEarn($this, $partner);
+
+    Log::spy();
+    expect(app(Payouts::class)->build())->toHaveCount(0);
+
+    Log::shouldHaveReceived('info')->withArgs(fn (string $message, array $context) => $context['partner_id'] === $partner->id
+        && $context['amount_cent'] === 3000
+        && $context['reason'] === 'below_minimum');
+});
+
+it('logs a rejected partner whose commissions are held back, with the amount and the reason', function () {
+    $partner = $this->makePartner();
+    silentEarn($this, $partner);
+    $partner->forceFill(['status' => Partner::STATUS_REJECTED])->save();
+
+    Log::spy();
+    expect(app(Payouts::class)->build())->toHaveCount(0);
+
+    Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context) => $context['partner_id'] === $partner->id
+        && $context['amount_cent'] === 3000
+        && $context['reason'] === 'rejected');
+});
+
+it('logs a failing consent check instead of silently refusing the cookie', function () {
+    config()->set('affiliates.consent.mode', 'auto');
+    // Bound under the same string Tracking resolves (with its leading backslash).
+    $this->mock('\Goldnead\StatamicConsent\Support\Registry', function ($mock): void {
+        $mock->shouldReceive('granted')->andThrow(new RuntimeException('consent store down'));
+    });
+
+    Log::spy();
+
+    expect(app(Tracking::class)->mayUseCookie(request()))->toBeFalse();
+
+    Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context) => $context['exception'] === 'consent store down');
+});
+
+it('does not carry an earlier mail failure over to a status change without a mail', function () {
+    silentFailingMailer();
+    $pending = $this->makePartner(['status' => Partner::STATUS_PENDING]);
+    $other = $this->makePartner(['status' => Partner::STATUS_ACTIVE, 'email' => 'zweite@example.com', 'code' => 'ZWEI']);
+
+    app(Affiliates::class)->invite($pending);
+    expect(app(Affiliates::class)->mailFailed())->toBeTrue();
+
+    app(Affiliates::class)->setStatus($other, Partner::STATUS_REJECTED);
+
+    expect(app(Affiliates::class)->mailFailed())->toBeFalse();
 });

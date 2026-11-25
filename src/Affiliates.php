@@ -11,6 +11,7 @@ use Goldnead\Affiliates\Models\Referral;
 use Goldnead\Affiliates\Support\Brands;
 use Goldnead\Affiliates\Support\Mailer;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Statamic\Contracts\Auth\User;
 
@@ -21,7 +22,34 @@ use Statamic\Contracts\Auth\User;
  */
 class Affiliates
 {
+    /** Whether the last invitation or approval mail did not go out. Reset by invite() and approve(). */
+    protected bool $mailFailed = false;
+
     public function __construct(protected Mailer $mailer) {}
+
+    public function mailFailed(): bool
+    {
+        return $this->mailFailed;
+    }
+
+    /** Forget an earlier result; call before an action whose mail result you are about to read. */
+    public function resetMailFailed(): void
+    {
+        $this->mailFailed = false;
+    }
+
+    /** Sends a partner mail and remembers, and logs without the address, when it did not go out. */
+    protected function deliver(Partner $partner, PartnerMail $mail): void
+    {
+        $this->mailFailed = ! $this->mailer->send($partner, $mail);
+
+        if ($this->mailFailed) {
+            Log::warning('statamic-affiliates: a partner mail did not go out.', [
+                'partner_id' => $partner->getKey(),
+                'mail' => $mail::class,
+            ]);
+        }
+    }
 
     /** The partner record of a signed-in user, in the current brand. */
     public function partnerFor(?User $user): ?Partner
@@ -77,6 +105,8 @@ class Affiliates
      */
     public function invite(Partner $partner): Partner
     {
+        $this->mailFailed = false;
+
         $partner->forceFill([
             'status' => Partner::STATUS_ACTIVE,
             'approved_at' => $partner->approved_at ?? Carbon::now(),
@@ -84,7 +114,7 @@ class Affiliates
             'invited_at' => Carbon::now(),
         ])->save();
 
-        $this->mailer->send($partner, new PartnerMail($partner, PartnerMail::INVITATION, $this->inviteUrl($partner)));
+        $this->deliver($partner, new PartnerMail($partner, PartnerMail::INVITATION, $this->inviteUrl($partner)));
 
         return $partner;
     }
@@ -133,6 +163,8 @@ class Affiliates
 
     public function approve(Partner $partner): Partner
     {
+        $this->mailFailed = false;
+
         if ($partner->isActive()) {
             return $partner;
         }
@@ -143,7 +175,7 @@ class Affiliates
 
         Brands::runFor($partner->brand_id, function () use ($partner): void {
             if (config('affiliates.mail.approved', true)) {
-                $this->mailer->send($partner, new PartnerMail($partner, PartnerMail::APPROVED, url('/')));
+                $this->deliver($partner, new PartnerMail($partner, PartnerMail::APPROVED, url('/')));
             }
         });
 
@@ -152,6 +184,8 @@ class Affiliates
 
     public function setStatus(Partner $partner, string $status): Partner
     {
+        $this->mailFailed = false;
+
         if ($status === Partner::STATUS_ACTIVE) {
             return $this->approve($partner);
         }

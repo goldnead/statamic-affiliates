@@ -123,6 +123,10 @@ class PartnersController extends CpController
 
         if (! empty($values['send_invitation'])) {
             $this->affiliates->invite($partner);
+
+            if ($this->affiliates->mailFailed()) {
+                session()->flash('error', __('affiliates::cp.invitation_mail_failed', ['email' => $partner->email]));
+            }
         }
 
         return ['saved' => true, 'redirect' => cp_route('affiliates.partners.show', $partner->id)];
@@ -242,10 +246,16 @@ class PartnersController extends CpController
             'code' => $this->code($values['code'] ?? null, (string) $values['name'], $model),
         ])->save();
 
+        $this->affiliates->resetMailFailed();
+
         if ($status !== $model->status) {
             $this->affiliates->setStatus($model, $status);
         } elseif (! $wasActive && $model->isActive()) {
             $this->affiliates->approve($model);
+        }
+
+        if ($this->affiliates->mailFailed()) {
+            session()->flash('error', __('affiliates::cp.mail_failed'));
         }
 
         return ['saved' => true, 'redirect' => cp_route('affiliates.partners.show', $model->id)];
@@ -260,6 +270,10 @@ class PartnersController extends CpController
 
         $this->affiliates->setStatus($model, $data['status']);
 
+        if ($this->affiliates->mailFailed()) {
+            return back()->with('error', __('affiliates::cp.mail_failed'));
+        }
+
         return back()->with('success', __('affiliates::cp.status_changed', ['status' => __('affiliates::cp.partner_'.$data['status'])]));
     }
 
@@ -270,6 +284,10 @@ class PartnersController extends CpController
         $model = Partner::query()->findOrFail($partner);
 
         $this->affiliates->invite($model);
+
+        if ($this->affiliates->mailFailed()) {
+            return back()->with('error', __('affiliates::cp.invitation_mail_failed', ['email' => $model->email]));
+        }
 
         return back()->with('success', __('affiliates::cp.invitation_sent', ['email' => $model->email]));
     }
