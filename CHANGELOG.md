@@ -8,6 +8,11 @@
 - Cancelling a commission by hand no longer touches a claw-back row. The Control Panel reports "nothing cancelled" instead of a false success when a cancel changed nothing.
 - `affiliates:book` no longer books a refunded or charged-back payment.
 - A refund or chargeback that could not be applied is logged with the payment id, the event and the full exception. New `affiliates:book {payment} --reverse` catches up what the listener missed.
+- A referral to a partner who is not active is logged with the partner and the payment. Nothing is booked for it, as before.
+- A plan switch without a findable first payment is logged with the payment and the subscription. It still earns no commission.
+- The payout CSV answers 404 for an unknown payout id, instead of an empty file. A payout whose partner is missing is logged.
+- A rejected or suspended partner who applies again gets an error message, not "application pending". An invitation says whether it expired, was sent to another address, or the account already has a partner access.
+- A partner moment the webhook manager has no trigger for is logged with the trigger name.
 
 ## 0.2.2 — 2026-11-16
 

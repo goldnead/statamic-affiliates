@@ -207,6 +207,13 @@ class Payouts
         foreach ($payouts as $payout) {
             $partner = Partner::query()->acrossBrands()->find($payout->partner_id);
 
+            if ($partner === null) {
+                Log::warning('statamic-affiliates: a payout in the CSV has no partner; its partner columns stay empty.', [
+                    'payout_id' => $payout->getKey(),
+                    'partner_id' => $payout->partner_id,
+                ]);
+            }
+
             fputcsv($handle, array_map([self::class, 'cell'], [
                 $payout->reference,
                 $partner?->name,

@@ -63,6 +63,12 @@ class PartnerAreaController extends Controller
 
         $partner = $this->affiliates->apply($user, $data);
 
+        // apply() hands back the existing record. A rejected or suspended
+        // one was not applied for now: say so, instead of "pending".
+        if (in_array($partner->status, [Partner::STATUS_REJECTED, Partner::STATUS_SUSPENDED], true)) {
+            return back()->withErrors(['affiliates' => __('affiliates::messages.apply_blocked')], 'affiliates');
+        }
+
         return back()->with('affiliates.success', $partner->isActive()
             ? __('affiliates::messages.applied_active')
             : __('affiliates::messages.applied_pending'));
@@ -80,9 +86,16 @@ class PartnerAreaController extends Controller
 
         $partner = $this->affiliates->acceptInvite($token, $user);
 
+        $message = match ($this->affiliates->inviteFailure()) {
+            Affiliates::INVITE_EXPIRED => __('affiliates::messages.invite_expired'),
+            Affiliates::INVITE_WRONG_ADDRESS => __('affiliates::messages.invite_wrong_address'),
+            Affiliates::INVITE_TAKEN => __('affiliates::messages.invite_taken'),
+            default => __('affiliates::messages.invite_invalid'),
+        };
+
         return redirect('/')->with('affiliates.success', $partner
             ? __('affiliates::messages.invite_accepted')
-            : __('affiliates::messages.invite_invalid'));
+            : $message);
     }
 
     public function details(Request $request): RedirectResponse

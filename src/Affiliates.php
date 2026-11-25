@@ -25,11 +25,27 @@ class Affiliates
     /** Whether the last invitation or approval mail did not go out. Reset by invite() and approve(). */
     protected bool $mailFailed = false;
 
+    /** Why the last acceptInvite() came back null; one of the INVITE_* values. Reset on every call. */
+    protected ?string $inviteFailure = null;
+
+    public const INVITE_UNKNOWN = 'unknown';
+
+    public const INVITE_EXPIRED = 'expired';
+
+    public const INVITE_WRONG_ADDRESS = 'wrong_address';
+
+    public const INVITE_TAKEN = 'taken';
+
     public function __construct(protected Mailer $mailer) {}
 
     public function mailFailed(): bool
     {
         return $this->mailFailed;
+    }
+
+    public function inviteFailure(): ?string
+    {
+        return $this->inviteFailure;
     }
 
     /** Forget an earlier result; call before an action whose mail result you are about to read. */
@@ -122,13 +138,19 @@ class Affiliates
     /** Bind an invitation to the signed-in user. Null when the token is unknown or used. */
     public function acceptInvite(string $token, User $user): ?Partner
     {
+        $this->inviteFailure = null;
+
         if (strlen($token) < 20) {
+            $this->inviteFailure = self::INVITE_UNKNOWN;
+
             return null;
         }
 
         $partner = Partner::query()->acrossBrands()->where('invite_token', $token)->first();
 
-        if ($partner === null) {
+        if ($partner === null || $partner->invited_at === null) {
+            $this->inviteFailure = self::INVITE_UNKNOWN;
+
             return null;
         }
 
@@ -137,11 +159,15 @@ class Affiliates
         // for as long as `signup.invite_days` says.
         $days = (int) Brands::runFor($partner->brand_id, fn () => config('affiliates.signup.invite_days', 14));
 
-        if ($partner->invited_at === null || ($days > 0 && $partner->invited_at->copy()->addDays($days)->isPast())) {
+        if ($days > 0 && $partner->invited_at->copy()->addDays($days)->isPast()) {
+            $this->inviteFailure = self::INVITE_EXPIRED;
+
             return null;
         }
 
         if (mb_strtolower(trim((string) $user->email())) !== mb_strtolower(trim($partner->email))) {
+            $this->inviteFailure = self::INVITE_WRONG_ADDRESS;
+
             return null;
         }
 
@@ -153,6 +179,8 @@ class Affiliates
             ->exists();
 
         if ($taken) {
+            $this->inviteFailure = self::INVITE_TAKEN;
+
             return null;
         }
 

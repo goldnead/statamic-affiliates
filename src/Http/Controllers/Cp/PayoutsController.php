@@ -135,6 +135,10 @@ class PayoutsController extends CpController
             ? Payout::query()->whereKey((int) $id)->get()
             : Payout::query()->where('status', Payout::STATUS_OPEN)->orderBy('id')->get();
 
+        if (is_numeric($id) && $rows->isEmpty()) {
+            abort(404);
+        }
+
         $name = 'auszahlungen-'.now()->format('Y-m-d').(is_numeric($id) ? '-'.$id : '').'.csv';
 
         return response($payouts->csv($rows), 200, [

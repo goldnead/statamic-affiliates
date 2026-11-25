@@ -8,6 +8,10 @@ return [
     'applied_active' => 'Welcome to the partner programme. Your link is below.',
     'invite_accepted' => 'Invitation accepted. Your partner area is ready.',
     'invite_invalid' => 'This invitation link is no longer valid.',
+    'invite_expired' => 'This invitation has expired. Please ask for a new link.',
+    'invite_wrong_address' => 'This invitation was sent to another email address. Sign in with that address.',
+    'invite_taken' => 'This account already has a partner access in this brand. The invitation cannot be accepted here.',
+    'apply_blocked' => 'A new application is not possible for this account. Get in touch if you have questions.',
     'details_saved' => 'Your payout details are saved.',
     'details_stored' => 'On file. Enter them again to change them.',
 

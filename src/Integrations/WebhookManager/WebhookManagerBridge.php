@@ -106,6 +106,10 @@ class WebhookManagerBridge
             $trigger = app('webhook-manager')->triggers()->get($handle);
 
             if ($trigger === null) {
+                Log::warning('statamic-affiliates: the webhook manager has no trigger for a partner moment; nothing was handed over.', [
+                    'trigger' => $handle,
+                ]);
+
                 return;
             }
 

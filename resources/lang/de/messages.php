@@ -8,6 +8,10 @@ return [
     'applied_active' => 'Willkommen im Partnerprogramm. Dein Link steht unten.',
     'invite_accepted' => 'Die Einladung ist angenommen. Dein Partnerbereich ist bereit.',
     'invite_invalid' => 'Dieser Einladungslink gilt nicht mehr.',
+    'invite_expired' => 'Diese Einladung ist abgelaufen. Bitte fordere einen neuen Link an.',
+    'invite_wrong_address' => 'Diese Einladung ist an eine andere E-Mail-Adresse gerichtet. Melde dich mit dieser Adresse an.',
+    'invite_taken' => 'Für dieses Konto gibt es in dieser Marke schon einen Partnerzugang. Die Einladung kann hier nicht angenommen werden.',
+    'apply_blocked' => 'Für dieses Konto ist keine neue Bewerbung möglich. Bei Fragen melde dich bei uns.',
     'details_saved' => 'Deine Auszahlungsdaten sind gespeichert.',
     'details_stored' => 'Hinterlegt. Zum Ändern neu eingeben.',
 
