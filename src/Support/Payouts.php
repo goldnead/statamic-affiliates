@@ -101,7 +101,16 @@ class Payouts
                 // when nothing (or less than the minimum) is left.
                 Payout::refreshTotals($payout->getKey());
 
-                return Payout::query()->acrossBrands()->find($payout->getKey());
+                $payout = Payout::query()->acrossBrands()->find($payout->getKey());
+
+                if ($payout === null) {
+                    Log::info('statamic-affiliates: payout dissolved, a partial refund left it at zero or below the minimum.', [
+                        'partner_id' => $first->partner_id,
+                        'expected_cent' => $total,
+                    ]);
+                }
+
+                return $payout;
             }
 
             // Not all of them were ours: give back what was claimed and drop
