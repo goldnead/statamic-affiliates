@@ -184,6 +184,8 @@ return [
 
     'status_changed' => 'Status geändert: :status',
     'invitation_sent' => 'Einladung an :email gesendet',
+    'invitation_mail_failed' => 'Die Einladung an :email konnte nicht gesendet werden. Details stehen im Log.',
+    'mail_failed' => 'Status geändert, aber die Mail an den Partner konnte nicht gesendet werden. Details stehen im Log.',
     'invite_confirm' => 'Eine Mail mit einem neuen Einladungslink geht an :email. Ein früherer Link gilt dann nicht mehr.',
     'status_confirm_active' => 'Der Partner wird wieder aktiv. Neue Klicks und Verkäufe zählen wieder.',
     'status_confirm_suspended' => 'Neue Klicks und Verkäufe zählen nicht mehr. Bereits verdiente Provisionen bleiben auszahlbar.',

@@ -184,6 +184,8 @@ return [
 
     'status_changed' => 'Status changed: :status',
     'invitation_sent' => 'Invitation sent to :email',
+    'invitation_mail_failed' => 'The invitation to :email could not be sent. Details are in the log.',
+    'mail_failed' => 'Status changed, but the mail to the partner could not be sent. Details are in the log.',
     'invite_confirm' => 'An email with a new invitation link goes to :email. An earlier link stops working.',
     'status_confirm_active' => 'The partner becomes active again. New clicks and sales count again.',
     'status_confirm_suspended' => 'New clicks and sales no longer count. Commissions already earned stay payable.',

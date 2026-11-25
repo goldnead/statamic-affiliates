@@ -6,6 +6,7 @@ use Goldnead\Affiliates\Models\Click;
 use Goldnead\Affiliates\Models\Partner;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Log;
 use Symfony\Component\HttpFoundation\Cookie;
 use Symfony\Component\HttpFoundation\Response;
 use Throwable;
@@ -95,7 +96,12 @@ class Tracking
 
         try {
             return (bool) app($registry)->granted((string) config('affiliates.consent.service', 'affiliates'), $request);
-        } catch (Throwable) {
+        } catch (Throwable $e) {
+            Log::warning('statamic-affiliates: the consent check failed, no cookie is set for this visit.', [
+                'exception' => $e->getMessage(),
+                'class' => $e::class,
+            ]);
+
             return false;
         }
     }

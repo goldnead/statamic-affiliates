@@ -47,12 +47,24 @@ class Payouts
             $total = (int) $rows->sum(fn (Commission $c) => $c->payableCent());
 
             if ($total <= 0 || $total < $minimum) {
+                Log::info('statamic-affiliates: payout held back, nothing payable yet or below the minimum.', [
+                    'partner_id' => $first->partner_id,
+                    'amount_cent' => $total,
+                    'reason' => $total <= 0 ? 'not_payable' : 'below_minimum',
+                ]);
+
                 continue;
             }
 
             $partner = Partner::query()->find($first->partner_id);
 
             if ($partner === null || in_array($partner->status, [Partner::STATUS_REJECTED], true)) {
+                Log::warning('statamic-affiliates: payout held back, the partner is missing or rejected.', [
+                    'partner_id' => $first->partner_id,
+                    'amount_cent' => $total,
+                    'reason' => $partner === null ? 'partner_missing' : 'rejected',
+                ]);
+
                 continue;
             }
 
