@@ -27,8 +27,8 @@ it('logs a referral to a partner who is not active, with the partner and the pay
     $this->pay($payment);
 
     expect(Commission::query()->count())->toBe(0);
-    Log::shouldHaveReceived('info')->withArgs(fn (string $message, array $context) => $context['partner_id'] === $partner->id
-        && $context['payment_id'] === $payment->id);
+    Log::shouldHaveReceived('info')->withArgs(fn (string $message, array $context = []) => ($context['partner_id'] ?? null) === $partner->id
+        && ($context['payment_id'] ?? null) === $payment->id);
 });
 
 it('logs a plan switch whose first payment cannot be found, with the payment and the subscription', function () {
@@ -39,8 +39,8 @@ it('logs a plan switch whose first payment cannot be found, with the payment and
 
     expect($sale->role)->toBe(Sale::ROLE_SWITCH)
         ->and($sale->originPaymentId)->toBe(0);
-    Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context) => $context['payment_id'] === $payment->id
-        && $context['subscription_id'] === 987654);
+    Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context = []) => ($context['payment_id'] ?? null) === $payment->id
+        && ($context['subscription_id'] ?? null) === 987654);
 });
 
 it('answers 404 for a payout id that does not exist, not an empty CSV', function () {
@@ -60,8 +60,8 @@ it('logs a payout in the CSV whose partner is missing, with the payout and the p
 
     app(Payouts::class)->csv([$payout->fresh()]);
 
-    Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context) => $context['payout_id'] === $payout->id
-        && $context['partner_id'] === 987654);
+    Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context = []) => ($context['payout_id'] ?? null) === $payout->id
+        && ($context['partner_id'] ?? null) === 987654);
 });
 
 it('logs a partner moment that the webhook manager has no trigger for, with the trigger name', function () {
@@ -84,7 +84,7 @@ it('logs a partner moment that the webhook manager has no trigger for, with the 
 
     (new ReflectionMethod($bridge, 'handOver'))->invoke($bridge, $handle, new stdClass);
 
-    Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context) => $context['trigger'] === $handle);
+    Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context = []) => ($context['trigger'] ?? null) === $handle);
 });
 
 it('does not show a rejected or suspended partner the applied-pending message', function () {
@@ -95,6 +95,24 @@ it('does not show a rejected or suspended partner the applied-pending message', 
         ->post('/!/affiliates/apply', ['terms' => '1'])
         ->assertSessionHasErrors('affiliates', null, 'affiliates')
         ->assertSessionMissing('affiliates.success');
+});
+
+it('keeps saying the link is invalid for an unknown token', function () {
+    $this->actingAs($this->member())
+        ->get('/!/affiliates/invite/'.Str::random(40))
+        ->assertSessionHas('affiliates.success', __('affiliates::messages.invite_invalid'));
+});
+
+it('does not log "not active" for a payment of an active partner', function () {
+    $partner = $this->makePartner();
+    $payment = $this->makePayment(['amount_cent' => 10000]);
+    Referral::query()->create(['partner_id' => $partner->id, 'payment_id' => $payment->id, 'source' => 'link']);
+    Log::spy();
+
+    $this->pay($payment);
+
+    expect(Commission::query()->count())->toBeGreaterThan(0);
+    Log::shouldNotHaveReceived('info', [Mockery::on(fn ($m) => is_string($m) && str_contains($m, 'not active')), Mockery::any()]);
 });
 
 it('tells an invitation that has run out apart from a wrong link', function () {
