@@ -53,7 +53,8 @@ class PaymentsBridge
         } catch (Throwable $e) {
             Log::warning('statamic-affiliates: could not note the referral on a new payment.', [
                 'payment_id' => $payment->getKey(),
-                'exception' => $e->getMessage(),
+                'event' => 'created',
+                'exception' => $e,
             ]);
         }
     }
@@ -71,7 +72,8 @@ class PaymentsBridge
         } catch (Throwable $e) {
             Log::error('statamic-affiliates: a paid payment could not be booked; run affiliates:book to retry.', [
                 'payment_id' => $payment->getKey(),
-                'exception' => $e->getMessage(),
+                'event' => 'paid',
+                'exception' => $e,
             ]);
         }
     }
@@ -92,9 +94,10 @@ class PaymentsBridge
 
             app(Ledger::class)->reverse((int) $payment->getKey(), $amount, $refunded, 'refund');
         } catch (Throwable $e) {
-            Log::error('statamic-affiliates: a refund could not be applied to the commissions.', [
+            Log::error('statamic-affiliates: a refund could not be applied to the commissions; run affiliates:book --reverse to catch up.', [
                 'payment_id' => $payment->getKey(),
-                'exception' => $e->getMessage(),
+                'event' => 'refund',
+                'exception' => $e,
             ]);
         }
     }
@@ -112,9 +115,10 @@ class PaymentsBridge
 
             app(Ledger::class)->reverse((int) $payment->getKey(), $amount, $amount, 'chargeback');
         } catch (Throwable $e) {
-            Log::error('statamic-affiliates: a chargeback could not be applied to the commissions.', [
+            Log::error('statamic-affiliates: a chargeback could not be applied to the commissions; run affiliates:book --reverse to catch up.', [
                 'payment_id' => $payment->getKey(),
-                'exception' => $e->getMessage(),
+                'event' => 'chargeback',
+                'exception' => $e,
             ]);
         }
     }

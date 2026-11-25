@@ -150,32 +150,56 @@ class Ledger
         }
     }
 
-    /** Cancel one commission by hand, from the Control Panel. */
-    public function cancel(Commission $commission, string $reason = 'manual'): void
+    /**
+     * Cancel one commission by hand, from the Control Panel.
+     *
+     * @return bool false when nothing was cancelled: a claw-back row is the
+     *              counter-entry of a paid commission and is not cancelled itself,
+     *              and a reversed one is already gone.
+     */
+    public function cancel(Commission $commission, string $reason = 'manual'): bool
     {
-        if ($commission->status === Commission::STATUS_PAID) {
-            $this->clawBack($commission, $commission->amount_cent, $reason);
-
-            return;
+        if ($commission->kind === Commission::KIND_CLAWBACK) {
+            return false;
         }
 
-        if ($commission->status === Commission::STATUS_REVERSED) {
-            return;
+        $done = DB::transaction(function () use ($commission, $reason): ?Commission {
+            // Read afresh under a lock: a payout build may have listed the
+            // commission since the caller loaded it.
+            $fresh = Commission::query()->acrossBrands()->lockForUpdate()->find($commission->getKey());
+
+            if ($fresh === null || $fresh->kind === Commission::KIND_CLAWBACK || $fresh->status === Commission::STATUS_REVERSED) {
+                return null;
+            }
+
+            if ($fresh->status === Commission::STATUS_PAID) {
+                return $this->clawBack($fresh, $fresh->amount_cent, $reason) ? $fresh : null;
+            }
+
+            $payoutId = $fresh->payout_id;
+
+            $fresh->forceFill([
+                'reversed_cent' => $fresh->amount_cent,
+                'status' => Commission::STATUS_REVERSED,
+                'reversed_at' => now(),
+                'reason' => $reason,
+                'payout_id' => null,
+            ])->save();
+
+            Payout::refreshTotals($payoutId);
+
+            return $fresh;
+        });
+
+        if ($done === null) {
+            return false;
         }
 
-        $payoutId = $commission->payout_id;
+        if ($done->status === Commission::STATUS_REVERSED) {
+            CommissionReversed::dispatch($done);
+        }
 
-        $commission->forceFill([
-            'reversed_cent' => $commission->amount_cent,
-            'status' => Commission::STATUS_REVERSED,
-            'reversed_at' => now(),
-            'reason' => $reason,
-            'payout_id' => null,
-        ])->save();
-
-        Payout::refreshTotals($payoutId);
-
-        CommissionReversed::dispatch($commission);
+        return true;
     }
 
     /**
@@ -477,7 +501,7 @@ class Ledger
      * A commission already paid out cannot be edited; what the refund takes
      * back becomes a negative row that the next payout list deducts.
      */
-    protected function clawBack(Commission $paid, int $target, string $reason): void
+    protected function clawBack(Commission $paid, int $target, string $reason): bool
     {
         $already = (int) Commission::query()->acrossBrands()
             ->where('reverses_id', $paid->getKey())
@@ -489,7 +513,7 @@ class Ledger
         $delta = max(0, $target - $paid->reversed_cent) + $already;
 
         if ($delta <= 0) {
-            return;
+            return false;
         }
 
         $row = Commission::query()->create([
@@ -513,5 +537,7 @@ class Ledger
         ]);
 
         CommissionReversed::dispatch($row);
+
+        return true;
     }
 }

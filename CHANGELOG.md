@@ -1,5 +1,14 @@
 # Changelog
 
+## Unreleased
+
+### Fixed
+
+- Payout lists: `build()` now claims the commissions atomically and checks how many rows it got. When a concurrent run listed them first, no phantom payout with the full amount is created (it was paid twice through the CSV before).
+- Cancelling a commission by hand no longer touches a claw-back row. The Control Panel reports "nothing cancelled" instead of a false success when a cancel changed nothing.
+- `affiliates:book` no longer books a refunded or charged-back payment.
+- A refund or chargeback that could not be applied is logged with the payment id, the event and the full exception. New `affiliates:book {payment} --reverse` catches up what the listener missed.
+
 ## 0.2.2 — 2026-11-16
 
 ### Changed

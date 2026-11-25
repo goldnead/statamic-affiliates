@@ -209,6 +209,7 @@ return [
     'cancel_commission' => 'Cancel',
     'cancel_commission_confirm' => 'The commission is cancelled and will not be paid out.',
     'commission_cancelled' => 'Commission cancelled',
+    'commission_not_cancelled' => 'Nothing cancelled: a claw-back or an already cancelled commission cannot be cancelled',
 
     'build_payouts' => 'Create Payout List',
     'export_csv' => 'As CSV',

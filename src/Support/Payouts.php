@@ -8,6 +8,7 @@ use Goldnead\Affiliates\Models\Payout;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 
 /**
@@ -55,27 +56,76 @@ class Payouts
                 continue;
             }
 
-            $created->push(DB::transaction(function () use ($rows, $first, $total, $partner): Payout {
-                $payout = Payout::query()->create([
-                    'brand_id' => $partner->brand_id,
-                    'partner_id' => $partner->getKey(),
-                    'amount_cent' => $total,
-                    'currency' => $first->currency,
-                    'commission_count' => $rows->count(),
-                    'status' => Payout::STATUS_OPEN,
-                    'reference' => 'AFF-'.Carbon::now()->format('Ymd').'-'.Str::upper(Str::random(5)),
-                ]);
+            $payout = $this->claim($rows, $first, $total, $partner);
 
-                Commission::query()
-                    ->whereIn('id', $rows->pluck('id'))
-                    ->whereNull('payout_id')
-                    ->update(['payout_id' => $payout->getKey(), 'updated_at' => Carbon::now()]);
-
-                return $payout;
-            }));
+            if ($payout !== null) {
+                $created->push($payout);
+            }
         }
 
         return $created;
+    }
+
+    /**
+     * Lists the commissions under a new payout, atomically: the rows are
+     * claimed with a conditional update and the payout only stays when every
+     * one of them was ours. A concurrent build() that got there first leaves
+     * nothing for this one, so no phantom payout with the full amount is made.
+     *
+     * @param  Collection<int, Commission>  $rows
+     */
+    protected function claim(Collection $rows, Commission $first, int $total, Partner $partner): ?Payout
+    {
+        return DB::transaction(function () use ($rows, $first, $total, $partner): ?Payout {
+            $payout = Payout::query()->create([
+                'brand_id' => $partner->brand_id,
+                'partner_id' => $partner->getKey(),
+                'amount_cent' => $total,
+                'currency' => $first->currency,
+                'commission_count' => $rows->count(),
+                'status' => Payout::STATUS_OPEN,
+                'reference' => 'AFF-'.Carbon::now()->format('Ymd').'-'.Str::upper(Str::random(5)),
+            ]);
+
+            $claimed = Commission::query()
+                ->whereIn('id', $rows->pluck('id'))
+                ->whereNull('payout_id')
+                ->where('status', Commission::STATUS_APPROVED)
+                ->update(['payout_id' => $payout->getKey(), 'updated_at' => Carbon::now()]);
+
+            if ($claimed === $rows->count()) {
+                // The amount was summed from rows read before the claim. A
+                // partial refund in between raises `reversed_cent` but leaves
+                // the row approved, so the claim still took it. Sum again from
+                // what is claimed now: the payout is corrected, or dissolved
+                // when nothing (or less than the minimum) is left.
+                Payout::refreshTotals($payout->getKey());
+
+                $payout = Payout::query()->acrossBrands()->find($payout->getKey());
+
+                if ($payout === null) {
+                    Log::info('statamic-affiliates: payout dissolved, a partial refund left it at zero or below the minimum.', [
+                        'partner_id' => $first->partner_id,
+                        'expected_cent' => $total,
+                    ]);
+                }
+
+                return $payout;
+            }
+
+            // Not all of them were ours: give back what was claimed and drop
+            // the payout. The next build() sees what is still free.
+            Commission::query()->where('payout_id', $payout->getKey())->update(['payout_id' => null]);
+            $payout->delete();
+
+            Log::warning('statamic-affiliates: payout skipped, the commissions could not all be claimed (another run or a cancel got there first).', [
+                'partner_id' => $first->partner_id,
+                'expected' => $rows->count(),
+                'claimed' => $claimed,
+            ]);
+
+            return null;
+        });
     }
 
     /**
