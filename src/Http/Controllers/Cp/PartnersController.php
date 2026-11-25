@@ -246,6 +246,8 @@ class PartnersController extends CpController
             'code' => $this->code($values['code'] ?? null, (string) $values['name'], $model),
         ])->save();
 
+        $this->affiliates->resetMailFailed();
+
         if ($status !== $model->status) {
             $this->affiliates->setStatus($model, $status);
         } elseif (! $wasActive && $model->isActive()) {

@@ -32,6 +32,12 @@ class Affiliates
         return $this->mailFailed;
     }
 
+    /** Forget an earlier result; call before an action whose mail result you are about to read. */
+    public function resetMailFailed(): void
+    {
+        $this->mailFailed = false;
+    }
+
     /** Sends a partner mail and remembers, and logs without the address, when it did not go out. */
     protected function deliver(Partner $partner, PartnerMail $mail): void
     {
@@ -178,6 +184,8 @@ class Affiliates
 
     public function setStatus(Partner $partner, string $status): Partner
     {
+        $this->mailFailed = false;
+
         if ($status === Partner::STATUS_ACTIVE) {
             return $this->approve($partner);
         }

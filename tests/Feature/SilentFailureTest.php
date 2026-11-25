@@ -1,5 +1,6 @@
 <?php
 
+use Goldnead\Affiliates\Affiliates;
 use Goldnead\Affiliates\Integrations\PaymentsBridge;
 use Goldnead\Affiliates\Models\Commission;
 use Goldnead\Affiliates\Models\Partner;
@@ -233,4 +234,17 @@ it('logs a failing consent check instead of silently refusing the cookie', funct
     expect(app(Tracking::class)->mayUseCookie(request()))->toBeFalse();
 
     Log::shouldHaveReceived('warning')->withArgs(fn (string $message, array $context) => $context['exception'] === 'consent store down');
+});
+
+it('does not carry an earlier mail failure over to a status change without a mail', function () {
+    silentFailingMailer();
+    $pending = $this->makePartner(['status' => Partner::STATUS_PENDING]);
+    $other = $this->makePartner(['status' => Partner::STATUS_ACTIVE, 'email' => 'zweite@example.com', 'code' => 'ZWEI']);
+
+    app(Affiliates::class)->invite($pending);
+    expect(app(Affiliates::class)->mailFailed())->toBeTrue();
+
+    app(Affiliates::class)->setStatus($other, Partner::STATUS_REJECTED);
+
+    expect(app(Affiliates::class)->mailFailed())->toBeFalse();
 });
