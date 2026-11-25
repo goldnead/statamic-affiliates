@@ -106,6 +106,22 @@ class Payouts
                 ->update(['payout_id' => $payout->getKey(), 'updated_at' => Carbon::now()]);
 
             if ($claimed === $rows->count()) {
+                // The amount was summed from rows read before the claim. A
+                // partial refund in between raises `reversed_cent` but leaves
+                // the row approved, so the claim still took it. Sum again from
+                // what is claimed now: the payout is corrected, or dissolved
+                // when nothing (or less than the minimum) is left.
+                Payout::refreshTotals($payout->getKey());
+
+                $payout = Payout::query()->acrossBrands()->find($payout->getKey());
+
+                if ($payout === null) {
+                    Log::info('statamic-affiliates: payout dissolved, a partial refund left it at zero or below the minimum.', [
+                        'partner_id' => $first->partner_id,
+                        'expected_cent' => $total,
+                    ]);
+                }
+
                 return $payout;
             }
 
