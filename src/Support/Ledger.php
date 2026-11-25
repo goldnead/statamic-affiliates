@@ -13,6 +13,7 @@ use Goldnead\Affiliates\Models\Referral;
 use Illuminate\Database\UniqueConstraintViolationException;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 
 /**
  * Books, reverses and releases commissions.
@@ -67,6 +68,14 @@ class Ledger
 
         if ($referral !== null && $partner !== null && $sale->role === Sale::ROLE_FIRST && $this->isSelfReferral($partner, $sale) && ! $referral->self_purchase) {
             $referral->forceFill(['self_purchase' => true])->save();
+        }
+
+        if ($partner !== null && ! $partner->isActive()) {
+            Log::info('statamic-affiliates: a referral names a partner who is not active; nothing is booked for it.', [
+                'partner_id' => $partner->getKey(),
+                'payment_id' => $sale->paymentId,
+                'status' => $partner->status,
+            ]);
         }
 
         if ($partner !== null && $partner->isActive() && ! $this->isSelfReferral($partner, $sale)) {

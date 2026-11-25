@@ -168,6 +168,13 @@ class PaymentsBridge
             default => [Sale::ROLE_FIRST, null],
         };
 
+        if ($role === Sale::ROLE_SWITCH && $origin === 0) {
+            Log::warning('statamic-affiliates: a plan switch has no first payment to inherit its referral from; it earns no commission.', [
+                'payment_id' => $payment->getKey(),
+                'subscription_id' => $switched,
+            ]);
+        }
+
         $coupon = $payment->getAttribute('discount_code');
 
         if (! is_string($coupon) || $coupon === '') {
